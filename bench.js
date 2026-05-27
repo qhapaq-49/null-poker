@@ -78,6 +78,8 @@ function runSelfplay(api, players, hands, samples, rules) {
   const vpip = Array.from({ length: players }, function () { return 0; });
   const pfr = Array.from({ length: players }, function () { return 0; });
   const actionCounts = {};
+  const streetActions = {};
+  const freqStats = { cbetOpp: 0, cbet: 0, donkOpp: 0, donk: 0 };
   let decisions = 0;
   let cappedHands = 0;
   let bigBlind = 2;
@@ -98,6 +100,9 @@ function runSelfplay(api, players, hands, samples, rules) {
       const analysis = api.FrequencyPolicy.decide(game, current, samples);
       const action = api.chooseMixedAction(analysis);
       actionCounts[action.type] = (actionCounts[action.type] || 0) + 1;
+      const streetKey = game.street + ':' + action.type;
+      streetActions[streetKey] = (streetActions[streetKey] || 0) + 1;
+      recordFrequencySpot(game, current, action, freqStats);
       api.applyAction(game, current, action);
       decisions += 1;
       guard += 1;
@@ -123,6 +128,15 @@ function runSelfplay(api, players, hands, samples, rules) {
     elapsedMs,
     msPerDecision: elapsedMs / Math.max(1, decisions),
     actionCounts,
+    streetActions,
+    frequency: {
+      cbet: freqStats.cbet,
+      cbetOpp: freqStats.cbetOpp,
+      cbetRate: freqStats.cbet / Math.max(1, freqStats.cbetOpp),
+      donk: freqStats.donk,
+      donkOpp: freqStats.donkOpp,
+      donkRate: freqStats.donk / Math.max(1, freqStats.donkOpp),
+    },
     seats: totals.map(function (chips, idx) {
       return {
         seat: idx,
@@ -133,6 +147,38 @@ function runSelfplay(api, players, hands, samples, rules) {
       };
     }),
   };
+}
+
+function recordFrequencySpot(game, current, action, stats) {
+  if (game.street !== 'flop' || maxCurrentBet(game) > 0) return;
+  const preflopAggressor = lastAggressorOnStreet(game, 'preflop');
+  if (preflopAggressor == null || game.players[preflopAggressor].folded) return;
+  const aggressive = action.type === 'bet' || action.type === 'raise';
+  if (current === preflopAggressor) {
+    stats.cbetOpp += 1;
+    if (aggressive) stats.cbet += 1;
+  } else if (!hasPlayerActedOnStreet(game, preflopAggressor, game.street)) {
+    stats.donkOpp += 1;
+    if (aggressive) stats.donk += 1;
+  }
+}
+
+function maxCurrentBet(game) {
+  return Math.max.apply(null, game.players.map(function (player) { return player.bet; }));
+}
+
+function lastAggressorOnStreet(game, street) {
+  for (let i = game.handActions.length - 1; i >= 0; i -= 1) {
+    const action = game.handActions[i];
+    if (action.street === street && action.aggressive) return action.player;
+  }
+  return null;
+}
+
+function hasPlayerActedOnStreet(game, playerIndex, street) {
+  return game.handActions.some(function (action) {
+    return action.street === street && action.player === playerIndex;
+  });
 }
 
 function runTeacher(api, samples) {
@@ -148,6 +194,7 @@ function printText(results, teacher) {
   results.forEach(function (result) {
     console.log(`players=${result.players} hands=${result.hands} decisions=${result.decisions} ms/decision=${result.msPerDecision.toFixed(2)} capped=${result.cappedHands}`);
     console.log(`actions=${JSON.stringify(result.actionCounts)}`);
+    console.log(`freq=cbet ${formatPct(result.frequency.cbetRate)} (${result.frequency.cbet}/${result.frequency.cbetOpp}), donk ${formatPct(result.frequency.donkRate)} (${result.frequency.donk}/${result.frequency.donkOpp})`);
     result.seats.forEach(function (seat) {
       console.log(`  seat ${seat.seat}: ${seat.bb100.toFixed(1)} bb/100, vpip=${formatPct(seat.vpip)}, pfr=${formatPct(seat.pfr)}`);
     });

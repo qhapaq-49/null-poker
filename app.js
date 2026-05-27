@@ -34,10 +34,12 @@ const DEFAULT_RULE_CONFIG = {
 const DEFAULT_TEACHER_ROWS = [
   { id: '6max BTN AKs open', players: 6, street: 'preflop', position: 'BTN', hole: 'AsKs', board: '', pot: 3, heroBet: 0, toCall: 2, teacher: { raise: 0.98, call: 0.02, fold: 0 } },
   { id: '9max UTG 72o open', players: 9, street: 'preflop', position: 'UTG', hole: '7c2d', board: '', pot: 3, heroBet: 0, toCall: 2, teacher: { fold: 0.98, call: 0.01, raise: 0.01 } },
-  { id: 'BB A5s vs minraise', players: 6, street: 'preflop', position: 'BB', hole: 'Ah5h', board: '', pot: 7, heroBet: 2, toCall: 2, teacher: { call: 0.58, raise: 0.18, fold: 0.24 } },
-  { id: 'Flop nut flush draw cbet', players: 3, street: 'flop', hole: 'AhQh', board: 'Kh7h2c', pot: 10, heroBet: 0, toCall: 0, teacher: { bet: 0.68, check: 0.32 } },
+  { id: 'BB A5s vs minraise', players: 6, street: 'preflop', position: 'BB', hole: 'Ah5h', board: '', pot: 7, heroBet: 2, toCall: 2, active: [0, 1], teacher: { call: 0.58, raise: 0.18, fold: 0.24 } },
+  { id: 'Flop nut flush draw cbet', players: 3, street: 'flop', hole: 'AhQh', board: 'Kh7h2c', pot: 10, heroBet: 0, toCall: 0, preflopAggressor: 0, teacher: { bet: 0.68, check: 0.32 } },
+  { id: 'HU BB weak donk check', players: 2, street: 'flop', position: 'BB', hole: '9c8d', board: 'AsKh2c', pot: 9, heroBet: 0, toCall: 0, preflopAggressor: 1, teacher: { check: 0.84, bet: 0.16 } },
+  { id: 'HU BTN missed cbet stab', players: 2, street: 'flop', position: 'BTN', hole: 'QhJc', board: '8s6d2c', pot: 9, heroBet: 0, toCall: 0, preflopAggressor: 1, history: [{ street: 'flop', player: 1, type: 'check' }], teacher: { bet: 0.55, check: 0.45 } },
   { id: 'Flop air facing multiway bet', players: 4, street: 'flop', hole: '7c2d', board: 'AsKdQh', pot: 16, heroBet: 0, toCall: 8, teacher: { fold: 0.94, call: 0.06, raise: 0 } },
-  { id: 'River pot bet bluffcatcher', players: 2, street: 'river', hole: 'QhJc', board: 'Qs9s4d2c8h', pot: 40, heroBet: 0, toCall: 30, teacher: { call: 0.46, fold: 0.54, raise: 0 } }
+  { id: 'River pot bet bluffcatcher', players: 2, street: 'river', hole: 'QhJc', board: 'Qs9s4d2c8h', pot: 40, heroBet: 0, toCall: 30, active: [0, 1], history: [{ street: 'river', player: 1, type: 'bet', amount: 30 }], teacher: { call: 0.46, fold: 0.54, raise: 0 } }
 ];
 
 const els = {};
@@ -792,25 +794,28 @@ const FrequencyPolicy = {
     const equityResult = estimateEquity(game, playerIndex, samples);
     const profile = handProfile(game, playerIndex);
     const position = positionFeatures(game, playerIndex);
+    const initiative = initiativeFeatures(game, playerIndex);
     const toCall = Math.min(amountToCall(game, playerIndex), game.players[playerIndex].stack);
     const ctx = {
       equity: equityResult.equity,
       samples: equityResult.samples,
       profile,
       position,
+      initiative,
       boardTexture: textureScore(game.board),
       toCall,
       requiredEquity: toCall > 0 ? toCall / Math.max(1, game.pot + toCall) : 0,
       mdf: toCall > 0 ? game.pot / Math.max(1, game.pot + toCall) : 1,
       fieldCount: Math.max(1, activePlayers(game).length - 1),
       rangePressure: maxOpponentPressure(game, playerIndex),
+      unopenedPreflop: game.street === 'preflop' && lastAggressorOnStreet(game, 'preflop') == null && currentBet(game) <= bigBlindAmount(game),
       targetAggression: 0
     };
     ctx.targetAggression = targetAggressionFrequency(game, playerIndex, ctx);
     const rows = actions.map(function (action) { return evaluatePolicyAction(game, playerIndex, action, ctx); });
     applyFrequencies(game, rows, ctx);
     rows.sort(function (a, b) { return b.score - a.score; });
-    return { playerIndex, samples: equityResult.samples, equity: equityResult.equity, rangePressure: ctx.rangePressure, boardTexture: ctx.boardTexture, toCall, requiredEquity: ctx.requiredEquity, mdf: ctx.mdf, targetAggression: ctx.targetAggression, profile, position, best: rows[0] || null, rows };
+    return { playerIndex, samples: equityResult.samples, equity: equityResult.equity, rangePressure: ctx.rangePressure, boardTexture: ctx.boardTexture, toCall, requiredEquity: ctx.requiredEquity, mdf: ctx.mdf, targetAggression: ctx.targetAggression, profile, position, initiative, best: rows[0] || null, rows };
   }
 };
 
@@ -858,9 +863,10 @@ function equityRealization(game, playerIndex, cost, ctx) {
 function largeBetRiskPenalty(game, playerIndex, action, ctx, cost, pot) {
   const ratio = cost / Math.max(1, pot);
   const isMax = action.target >= maxTargetFor(game, playerIndex);
-  const polarized = ctx.equity > 0.72 || (game.street === 'river' && ctx.equity < 0.28 && ctx.profile.blocker > 0.15);
+  const polarized = game.street === 'preflop' ? ctx.equity > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.28 && ctx.profile.blocker > 0.15);
   let penalty = 0;
   if (ratio > 1.15) penalty += cost * Math.min(0.34, (ratio - 1.15) * 0.08);
+  if (ctx.toCall > 0 && !ctx.unopenedPreflop && action.type === 'raise' && !polarized) penalty += cost * (game.street === 'river' ? 0.28 : 0.12);
   if (isMax && !polarized && pot < startingStackAmount(game) * 0.7) penalty += cost * 0.24;
   if (game.street === 'preflop' && isMax && pot < 18) penalty += cost * (ctx.equity < 0.82 ? 0.55 : 0.2);
   if (ctx.fieldCount >= 3 && ctx.equity < 0.68) penalty += cost * 0.08;
@@ -881,13 +887,21 @@ function estimateFoldProbabilityAgainst(game, playerIndex, opponentIndex, action
   const jamBonus = action.target >= maxTargetFor(game, playerIndex) ? (spr < 2.2 ? 0.07 : 0.015) : 0;
   const multiwayTightening = Math.min(0.12, (ctx.fieldCount - 1) * 0.035);
   const valueDampener = ctx.equity > 0.72 ? 0.07 : 0;
-  const raw = streetBase + sizePressure * 0.48 + ctx.boardTexture * 0.07 + jamBonus + multiwayTightening - pressure * 0.15 - opponentCommitment * 0.2 - valueDampener;
+  const facingBet = currentBet(game) > player.bet && !ctx.unopenedPreflop;
+  const initiativeFold = game.street !== 'preflop' && !facingBet ? (ctx.initiative.hasInitiative ? 0.04 : ctx.initiative.isDonkLead ? -0.1 : ctx.initiative.missedCbetStab ? 0.02 : 0) : 0;
+  const raiseIntoStrength = facingBet && action.type === 'raise' ? (game.street === 'river' ? 0.16 : 0.09) : 0;
+  const raw = streetBase + sizePressure * 0.48 + ctx.boardTexture * 0.07 + jamBonus + multiwayTightening + initiativeFold - pressure * 0.15 - opponentCommitment * 0.2 - valueDampener - raiseIntoStrength;
   return clamp(raw, 0.03, 0.78);
 }
 
 function strategyMass(game, playerIndex, action, ctx) {
   const style = game.players[playerIndex].style || { risk: 1, bluff: 1, call: 1 };
   if (action.type === 'fold') {
+    if (ctx.unopenedPreflop) {
+      const openThreshold = 0.44 + ctx.position.playersBehind * 0.035 - ctx.position.late * 0.08 - ctx.position.blindDefense * 0.03;
+      const openFit = sigmoid((ctx.profile.preflop - openThreshold) * 13);
+      return { mass: clamp(0.06 + (1 - openFit) * 1.25, 0.03, 1.4), note: 'open range ' + percent(openFit) };
+    }
     const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.05) * 11);
     const multiwayFold = Math.min(0.25, (ctx.fieldCount - 1) * 0.07);
     return { mass: clamp(0.03 + pressureFold + multiwayFold, 0.03, 1.45), note: 'MDF ' + percent(ctx.mdf) };
@@ -896,7 +910,8 @@ function strategyMass(game, playerIndex, action, ctx) {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
     const drawHelp = ctx.profile.draw * 1.4 + ctx.profile.blocker * 0.35;
     const dominatedPenalty = game.street === 'preflop' && ctx.position.playersBehind >= 4 ? 0.18 : 0;
-    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call / Math.sqrt(ctx.fieldCount);
+    const limpBrake = ctx.unopenedPreflop && !ctx.position.blindDefense ? 0.28 : 1;
+    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * limpBrake / Math.sqrt(ctx.fieldCount);
     return { mass: clamp(mass, 0.04, 1.65), note: 'pot odds ' + percent(ctx.requiredEquity) };
   }
   if (action.type === 'check') {
@@ -911,16 +926,22 @@ function strategyMass(game, playerIndex, action, ctx) {
   const bluffRatio = avgCallCost / Math.max(1, game.pot + 2 * avgCallCost);
   const multiwayDiscount = 1 / Math.sqrt(ctx.fieldCount);
   const sizeRatio = avgCallCost / Math.max(1, game.pot + avgCallCost);
-  let valueThreshold = 0.53 + Math.min(0.18, (ctx.fieldCount - 1) * 0.045) + sizeRatio * 0.16 - ctx.position.late * 0.08;
-  if (game.street === 'preflop') valueThreshold += ctx.position.playersBehind * 0.022 - ctx.position.blindDefense * 0.05;
+  let valueThreshold;
+  if (game.street === 'preflop') {
+    valueThreshold = (ctx.unopenedPreflop ? 0.42 : 0.5) + ctx.position.playersBehind * 0.038 + sizeRatio * 0.1 - ctx.position.late * 0.1 - ctx.position.blindDefense * 0.06;
+  } else {
+    valueThreshold = 0.53 + Math.min(0.18, (ctx.fieldCount - 1) * 0.045) + sizeRatio * 0.16 - ctx.position.late * 0.08;
+  }
   const isJam = target >= maxTargetFor(game, playerIndex);
   let jamPenalty = isJam ? (ctx.equity > 0.78 || (game.street === 'river' && ctx.profile.blocker > 0.16) ? 0.72 : 0.18) : 1;
   if (game.street === 'preflop' && isJam && game.pot < 18) jamPenalty *= ctx.equity > 0.86 ? 0.55 : 0.06;
   const frequencyBoost = 0.45 + ctx.targetAggression * 1.45;
-  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost;
-  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost;
-  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost : 0;
-  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost : 0;
+  const polarRaise = game.street === 'preflop' ? ctx.profile.preflop > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.32 && ctx.profile.blocker > 0.15);
+  const raiseVsBetPenalty = action.type === 'raise' && ctx.toCall > 0 && !ctx.unopenedPreflop && !polarRaise ? (game.street === 'river' ? 0.1 : 0.35) : 1;
+  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty;
+  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty;
+  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty : 0;
+  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty : 0;
   return { mass: clamp(0.035 + valueMass + semiBluff + lowEquityBluff + denyEquity, 0.025, 2.35), note: 'target ' + percent(ctx.targetAggression) + ' / bluff ' + percent(bluffRatio * multiwayDiscount) };
 }
 
@@ -945,7 +966,7 @@ function applyFrequencies(game, rows, ctx) {
 }
 
 function targetAggressionFrequency(game, playerIndex, ctx) {
-  const facingBet = ctx.toCall > 0;
+  const facingBet = ctx.toCall > 0 && !ctx.unopenedPreflop;
   let target;
   if (game.street === 'preflop') {
     target = facingBet ? 0.16 : 0.18 + ctx.position.late * 0.34 - ctx.position.playersBehind * 0.032 + ctx.position.blindDefense * 0.04;
@@ -956,11 +977,49 @@ function targetAggressionFrequency(game, playerIndex, ctx) {
   } else {
     target = facingBet ? 0.1 : 0.42 + ctx.position.late * 0.08 - (ctx.fieldCount - 1) * 0.07;
   }
+  if (game.street !== 'preflop' && !facingBet) {
+    if (ctx.initiative.hasInitiative) target += game.street === 'flop' ? 0.14 : game.street === 'turn' ? 0.09 : 0.04;
+    if (ctx.initiative.isDonkLead) target -= game.street === 'flop' ? 0.2 : game.street === 'turn' ? 0.14 : 0.08;
+    if (ctx.initiative.hasInitiative && ctx.position.hasPosition && ctx.fieldCount === 1 && ctx.boardTexture < 0.45) target += 0.08;
+  }
+  if (game.street !== 'preflop' && facingBet && ctx.initiative.hasInitiative && ctx.profile.draw > 0.05) target += 0.04;
   target += ctx.profile.draw * 0.55 + ctx.profile.blocker * 0.35;
   if (ctx.equity > 0.68) target += 0.16;
   if (ctx.equity < 0.28 && game.street !== 'river') target -= 0.14;
   if (ctx.equity < 0.22 && game.street === 'river') target += ctx.profile.blocker * 0.55;
+  if (game.street !== 'preflop' && !facingBet && ctx.initiative.isDonkLead) {
+    target = target * (ctx.fieldCount === 1 ? 0.38 : 0.5) - 0.08;
+  }
+  if (game.street !== 'preflop' && !facingBet && ctx.initiative.missedCbetStab) {
+    target += game.street === 'flop' ? 0.08 : 0.04;
+  }
   return clamp(target, facingBet ? 0.04 : 0.08, facingBet ? 0.42 : 0.82);
+}
+
+function initiativeFeatures(game, playerIndex) {
+  const preflopAggressor = lastAggressorOnStreet(game, 'preflop');
+  const currentStreetAggressor = lastAggressorOnStreet(game, game.street);
+  const firstAggressiveOnStreet = currentStreetAggressor == null;
+  const preflopAggressorActive = preflopAggressor != null && !game.players[preflopAggressor].folded;
+  const preflopAggressorActed = preflopAggressorActive && hasPlayerActedOnStreet(game, preflopAggressor, game.street);
+  const hasInitiative = game.street !== 'preflop' && preflopAggressor === playerIndex && firstAggressiveOnStreet;
+  const isDonkLead = game.street !== 'preflop' && firstAggressiveOnStreet && preflopAggressorActive && preflopAggressor !== playerIndex && !preflopAggressorActed;
+  const missedCbetStab = game.street !== 'preflop' && firstAggressiveOnStreet && preflopAggressorActive && preflopAggressor !== playerIndex && preflopAggressorActed;
+  return { preflopAggressor, currentStreetAggressor, hasInitiative, isDonkLead, missedCbetStab };
+}
+
+function lastAggressorOnStreet(game, street) {
+  for (let i = game.handActions.length - 1; i >= 0; i -= 1) {
+    const action = game.handActions[i];
+    if (action.street === street && action.aggressive) return action.player;
+  }
+  return null;
+}
+
+function hasPlayerActedOnStreet(game, playerIndex, street) {
+  return game.handActions.some(function (action) {
+    return action.street === street && action.player === playerIndex;
+  });
 }
 
 function positionFeatures(game, playerIndex) {
@@ -1351,9 +1410,56 @@ function teacherSpotToGame(row) {
       game.players[1].totalInvested = heroBet + toCall;
     }
   }
+  applyTeacherActivePlayers(game, row);
   const invested = game.players.reduce(function (sum, p) { return sum + p.totalInvested; }, 0);
   game.pot = Math.max(game.pot, invested);
+  applyTeacherHistory(game, row);
   return game;
+}
+
+function applyTeacherActivePlayers(game, row) {
+  if (!Array.isArray(row.active) && !Array.isArray(row.folded)) return;
+  const active = Array.isArray(row.active) ? new Set(row.active.map(function (idx) { return teacherPlayerIndex(game, idx); })) : null;
+  const folded = Array.isArray(row.folded) ? new Set(row.folded.map(function (idx) { return teacherPlayerIndex(game, idx); })) : new Set();
+  if (active) active.add(HERO);
+  game.players.forEach(function (player, idx) {
+    player.folded = active ? !active.has(idx) : folded.has(idx);
+  });
+  game.players[HERO].folded = false;
+}
+
+function applyTeacherHistory(game, row) {
+  const actions = [];
+  const explicitHistory = Array.isArray(row.history) ? row.history : [];
+  const hasPreflopAggressor = explicitHistory.some(function (action) {
+    return action.street === 'preflop' && action.aggressive !== false && ['bet', 'raise', 'open', 'reraise'].includes(String(action.type || '').toLowerCase());
+  });
+  if (row.preflopAggressor != null && !hasPreflopAggressor) {
+    actions.push({ player: teacherPlayerIndex(game, row.preflopAggressor), street: 'preflop', type: 'raise', amount: 0, aggressive: true });
+  }
+  explicitHistory.forEach(function (action) {
+    const type = String(action.type || 'check').toLowerCase();
+    actions.push({
+      player: teacherPlayerIndex(game, action.player),
+      street: action.street || 'preflop',
+      type,
+      amount: Number(action.amount || 0),
+      target: action.target == null ? undefined : Number(action.target),
+      aggressive: action.aggressive == null ? type === 'bet' || type === 'raise' || type === 'open' || type === 'reraise' : Boolean(action.aggressive)
+    });
+  });
+  game.handActions = actions;
+  actions.forEach(function (action) {
+    if (action.aggressive && game.reads[action.player]) {
+      game.reads[action.player].aggression += 1 + Math.min(2, Number(action.amount || 0) / Math.max(1, game.pot));
+      game.reads[action.player].lastAggressiveStreet = action.street;
+    }
+  });
+}
+
+function teacherPlayerIndex(game, value) {
+  if (String(value).toLowerCase() === 'hero') return HERO;
+  return clampInt(Number(value == null ? HERO : value), 0, game.players.length - 1);
 }
 
 function applyTeacherPosition(game, position) {
