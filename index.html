@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Table Holdem Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="table-stage" aria-label="Texas Holdem table">
+        <header class="top-bar">
+          <div>
+            <h1>Table Holdem Lab</h1>
+            <p id="statusLine">Loading table...</p>
+          </div>
+          <div class="top-actions">
+            <button id="newHandBtn" class="ghost-button" type="button">New Hand</button>
+            <button id="resetBtn" class="ghost-button" type="button">Reset</button>
+          </div>
+        </header>
+
+        <div class="poker-table">
+          <section id="seatsGrid" class="seats-grid" aria-label="Players"></section>
+
+          <section class="board-zone" aria-label="Board and pot">
+            <div class="pot-stack">
+              <span>Pot</span>
+              <strong id="potValue">0</strong>
+            </div>
+            <div id="boardCards" class="cards board-cards"></div>
+          </section>
+        </div>
+
+        <section id="actionControls" class="action-controls" aria-label="Actions"></section>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel-block options-block">
+          <div class="block-heading">
+            <h2>Options</h2>
+          </div>
+          <label class="select-row">
+            <span>人数</span>
+            <select id="playerCountSelect">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6" selected>6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+            </select>
+          </label>
+          <label class="select-row">
+            <span>形式</span>
+            <select id="ruleModeSelect">
+              <option value="cash" selected>Cash</option>
+              <option value="tournament">Tournament</option>
+            </select>
+          </label>
+          <label class="select-row">
+            <span>Blinds</span>
+            <select id="blindSelect">
+              <option value="1/2" selected>1 / 2</option>
+              <option value="2/5">2 / 5</option>
+              <option value="5/10">5 / 10</option>
+              <option value="10/20">10 / 20</option>
+            </select>
+          </label>
+          <label class="select-row">
+            <span>Stack</span>
+            <select id="stackBbSelect">
+              <option value="50">50bb</option>
+              <option value="100" selected>100bb</option>
+              <option value="150">150bb</option>
+              <option value="200">200bb</option>
+            </select>
+          </label>
+          <label class="select-row">
+            <span>Ante</span>
+            <select id="anteSelect">
+              <option value="0" selected>なし</option>
+              <option value="0.1">10% BB</option>
+              <option value="0.125">12.5% BB</option>
+              <option value="0.25">25% BB</option>
+            </select>
+          </label>
+          <label class="select-row">
+            <span>Level</span>
+            <select id="levelHandsSelect">
+              <option value="0" selected>固定</option>
+              <option value="5">5 hands</option>
+              <option value="10">10 hands</option>
+              <option value="20">20 hands</option>
+            </select>
+          </label>
+          <label class="toggle-row">
+            <span>AI推奨</span>
+            <input id="advisorToggle" type="checkbox" checked />
+          </label>
+          <label class="select-row">
+            <span>思考量</span>
+            <select id="depthSelect">
+              <option value="fast">Fast</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="deep">Deep</option>
+            </select>
+          </label>
+          <label class="toggle-row">
+            <span>AIカード公開</span>
+            <input id="peekToggle" type="checkbox" />
+          </label>
+        </section>
+
+        <section id="advisorPanel" class="panel-block advisor-panel"></section>
+
+        <section class="panel-block bench-panel">
+          <div class="block-heading">
+            <h2>Bench</h2>
+          </div>
+          <div class="bench-actions">
+            <button id="selfplayBenchBtn" class="ghost-button" type="button">Selfplay</button>
+            <button id="teacherBenchBtn" class="ghost-button" type="button">Teacher</button>
+          </div>
+          <label class="text-row">
+            <span>教師JSON</span>
+            <textarea id="teacherInput" spellcheck="false"></textarea>
+          </label>
+          <pre id="benchOutput" class="bench-output">No benchmark yet.</pre>
+        </section>
+
+        <section class="panel-block log-panel">
+          <div class="block-heading">
+            <h2>Hand Log</h2>
+          </div>
+          <ol id="handLog"></ol>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
