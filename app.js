@@ -90,15 +90,18 @@ const DEFAULT_TEACHER_ROWS = [
   { id: 'River pot bet bluffcatcher', players: 2, street: 'river', hole: 'QhJc', board: 'Qs9s4d2c8h', pot: 40, heroBet: 0, toCall: 30, active: [0, 1], history: [{ street: 'river', player: 1, type: 'bet', amount: 30 }], teacher: { call: 0.46, fold: 0.54, raise: 0 } }
 ];
 
+const AI_SPEED_DELAYS = { instant: 0, fast: 180, normal: 720, slow: 1250 };
+const NEXT_HAND_DELAYS = { instant: 180, fast: 420, normal: 900, slow: 1400 };
+
 const els = {};
 let state = null;
 let botTimer = null;
 
 function init() {
   [
-    'statusLine', 'newHandBtn', 'resetBtn', 'potValue', 'boardCards', 'seatsGrid', 'actionControls',
+    'statusLine', 'newHandBtn', 'resetBtn', 'potValue', 'boardCards', 'pokerTable', 'seatsGrid', 'actionControls',
     'playerCountSelect', 'ruleModeSelect', 'blindSelect', 'stackBbSelect', 'anteSelect', 'levelHandsSelect',
-    'advisorToggle', 'depthSelect', 'peekToggle', 'advisorPanel',
+    'advisorToggle', 'autoPlayToggle', 'aiSpeedSelect', 'depthSelect', 'peekToggle', 'advisorPanel',
     'selfplayBenchBtn', 'teacherBenchBtn', 'teacherInput', 'benchOutput', 'handLog'
   ].forEach(function (id) { els[id] = document.getElementById(id); });
 
@@ -114,6 +117,14 @@ function init() {
     els[id].addEventListener('change', resetMatch);
   });
   els.advisorToggle.addEventListener('change', function () { state.settings.showAdvisor = els.advisorToggle.checked; state.advisorCache = null; render(); });
+  els.autoPlayToggle.addEventListener('change', function () {
+    clearBotTimer();
+    state.settings.autoPlay = els.autoPlayToggle.checked;
+    state.players[HERO].isBot = state.settings.autoPlay;
+    render();
+    maybeBotAct();
+  });
+  els.aiSpeedSelect.addEventListener('change', function () { state.settings.aiSpeed = els.aiSpeedSelect.value || 'normal'; });
   els.depthSelect.addEventListener('change', function () { state.settings.depth = els.depthSelect.value; state.advisorCache = null; render(); });
   els.peekToggle.addEventListener('change', function () { state.settings.peekAiCards = els.peekToggle.checked; render(); });
   els.selfplayBenchBtn.addEventListener('click', runSelfplayFromUi);
@@ -125,7 +136,7 @@ function init() {
 function resetMatch() {
   clearBotTimer();
   const settings = readSettings();
-  state = createGame(settings.playerCount, settings, { logging: true, heroIsBot: false });
+  state = createGame(settings.playerCount, settings, { logging: true, heroIsBot: settings.autoPlay });
   startHand(state);
   render();
   maybeBotAct();
@@ -136,6 +147,8 @@ function readSettings() {
     playerCount: clampInt(Number(els.playerCountSelect.value || 6), UI_MIN_PLAYERS, UI_MAX_PLAYERS),
     rules: readRulesFromControls(),
     showAdvisor: els.advisorToggle.checked,
+    autoPlay: els.autoPlayToggle.checked,
+    aiSpeed: els.aiSpeedSelect.value || 'normal',
     depth: els.depthSelect.value || 'balanced',
     peekAiCards: els.peekToggle.checked
   };
@@ -239,7 +252,7 @@ function createGame(playerCount, settings, options) {
     reads: [],
     players: [],
     rules,
-    settings: Object.assign({ playerCount: count, showAdvisor: true, depth: 'balanced', peekAiCards: false }, settingsObj, { rules }),
+    settings: Object.assign({ playerCount: count, showAdvisor: false, autoPlay: false, aiSpeed: 'normal', depth: 'balanced', peekAiCards: false }, settingsObj, { rules }),
     lastAiAnalysis: null,
     advisorCache: null,
     message: 'New Handで開始',
@@ -807,7 +820,18 @@ function finishByFold(game, winnerIndex) {
 
 function maybeBotAct() {
   clearBotTimer();
-  if (!state || state.handOver || state.current == null || !state.players[state.current].isBot) return;
+  if (!state) return;
+  if (state.handOver) {
+    if (!state.settings.autoPlay) return;
+    botTimer = window.setTimeout(function () {
+      if (!state || !state.settings.autoPlay) return;
+      startHand(state);
+      render();
+      maybeBotAct();
+    }, nextHandDelayMs());
+    return;
+  }
+  if (state.current == null || !state.players[state.current].isBot) return;
   state.message = state.players[state.current].name + ' thinking...';
   render();
   botTimer = window.setTimeout(function () {
@@ -818,7 +842,17 @@ function maybeBotAct() {
     applyAction(state, idx, chooseMixedAction(analysis));
     render();
     maybeBotAct();
-  }, 160);
+  }, botActionDelayMs());
+}
+
+function botActionDelayMs() {
+  const key = state && state.settings ? state.settings.aiSpeed : 'normal';
+  return AI_SPEED_DELAYS[key] ?? AI_SPEED_DELAYS.normal;
+}
+
+function nextHandDelayMs() {
+  const key = state && state.settings ? state.settings.aiSpeed : 'normal';
+  return NEXT_HAND_DELAYS[key] ?? NEXT_HAND_DELAYS.normal;
 }
 
 function clearBotTimer() {
@@ -1846,6 +1880,8 @@ function render() {
   if (!state) return;
   els.statusLine.textContent = statusText();
   els.potValue.textContent = String(state.pot);
+  els.pokerTable.className = 'poker-table players-' + state.players.length;
+  els.seatsGrid.className = 'seats-grid players-' + state.players.length;
   els.boardCards.innerHTML = renderBoard();
   els.seatsGrid.innerHTML = state.players.map(function (_, idx) { return renderSeat(idx); }).join('');
   renderActions();
@@ -1887,12 +1923,32 @@ function renderSeat(playerIndex) {
     state.bigBlind === playerIndex ? '<span class="blind-badge">BB</span>' : '',
     state.current === playerIndex && !state.handOver ? '<span class="turn-badge">Turn</span>' : ''
   ].join('');
-  const classes = ['seat', playerIndex === HERO ? 'hero' : '', player.folded ? 'folded' : ''].filter(Boolean).join(' ');
+  const latestAction = latestActionForPlayer(playerIndex);
+  const classes = ['seat', playerIndex === HERO ? 'hero' : '', player.folded ? 'folded' : '', state.current === playerIndex && !state.handOver ? 'acting' : ''].filter(Boolean).join(' ');
   const label = player.folded ? 'Folded' : score ? score.name : 'Hidden';
   return '<section class="' + classes + '">' +
     '<div class="player-name-row"><span class="player-name">' + escapeHtml(player.name) + '</span><span class="badges">' + badges + '</span></div>' +
     '<div class="stack-grid"><div class="metric"><span>Stack</span><strong>' + player.stack + '</strong></div><div class="metric"><span>Bet</span><strong>' + player.bet + '</strong></div></div>' +
-    '<div class="cards hole-cards">' + holeCards + '</div><div class="hand-label">' + escapeHtml(label) + '</div></section>';
+    '<div class="cards hole-cards">' + holeCards + '</div><div class="hand-label">' + escapeHtml(label) + '</div>' +
+    (latestAction ? '<div class="action-flash">' + escapeHtml(latestAction) + '</div>' : '') + '</section>';
+}
+
+function latestActionForPlayer(playerIndex) {
+  if (!state || !state.handActions) return '';
+  for (let i = state.handActions.length - 1; i >= 0; i -= 1) {
+    const action = state.handActions[i];
+    if (action.player === playerIndex) return actionSummary(action);
+  }
+  return '';
+}
+
+function actionSummary(action) {
+  if (action.type === 'fold') return 'Fold';
+  if (action.type === 'check') return 'Check';
+  if (action.type === 'call') return 'Call ' + action.amount;
+  if (action.type === 'bet') return 'Bet ' + (action.target || action.amount);
+  if (action.type === 'raise') return 'Raise ' + (action.target || action.amount);
+  return action.type;
 }
 
 function cardHtml(card) {
@@ -1909,6 +1965,10 @@ function renderActions() {
   if (state.handOver) {
     els.actionControls.innerHTML = '<div class="action-grid"><button class="primary-button" type="button" data-command="new-hand">New Hand</button></div>';
     els.actionControls.querySelector('[data-command="new-hand"]').addEventListener('click', function () { startHand(state); render(); maybeBotAct(); });
+    return;
+  }
+  if (state.players[HERO].isBot) {
+    els.actionControls.innerHTML = '<p class="note">AI観戦中。速度を変えるか、AI観戦を切ると操作に戻ります。</p>';
     return;
   }
   if (state.current !== HERO) {
@@ -1961,7 +2021,9 @@ function customRaiseHtml(raiseActions) {
 
 function renderAdvisor() {
   if (!state.settings.showAdvisor) {
-    els.advisorPanel.innerHTML = '<div class="block-heading"><h2>AI推奨</h2></div><p class="note">Off</p>';
+    els.advisorPanel.innerHTML = '<div class="block-heading"><h2>AI推奨</h2><button class="ghost-button compact-button" type="button" data-show-advisor>Show</button></div><p class="note">Hidden</p>';
+    const showButton = els.advisorPanel.querySelector('[data-show-advisor]');
+    if (showButton) showButton.addEventListener('click', function () { setAdvisorVisible(true); });
     return;
   }
   let analysis = null;
@@ -1969,7 +2031,9 @@ function renderAdvisor() {
   if (!state.handOver && state.current === HERO) analysis = cachedAdvisorAnalysis();
   else if (state.lastAiAnalysis) { analysis = state.lastAiAnalysis; title = 'AI Last Thought'; }
   if (!analysis || !analysis.best) {
-    els.advisorPanel.innerHTML = '<div class="block-heading"><h2>' + title + '</h2></div><p class="note">No decision point.</p>';
+    els.advisorPanel.innerHTML = '<div class="block-heading"><h2>' + title + '</h2><button class="ghost-button compact-button" type="button" data-hide-advisor>Hide</button></div><p class="note">No decision point.</p>';
+    const hideButton = els.advisorPanel.querySelector('[data-hide-advisor]');
+    if (hideButton) hideButton.addEventListener('click', function () { setAdvisorVisible(false); });
     return;
   }
 
@@ -1977,10 +2041,19 @@ function renderAdvisor() {
     const rolloutText = row.rolloutSamples > 0 ? ' r' + row.rolloutSamples : '';
     return '<div class="ev-row ' + (index === 0 ? 'best' : '') + '"><strong>' + escapeHtml(row.action.label) + '</strong><span>EV ' + formatChip(row.ev) + rolloutText + '</span><span>' + Math.round(row.frequency * 100) + '%</span></div>';
   }).join('');
-  els.advisorPanel.innerHTML = '<div class="block-heading"><h2>' + title + '</h2><span class="street-badge">' + (STREET_LABELS[state.street] || state.street) + '</span></div>' +
+  els.advisorPanel.innerHTML = '<div class="block-heading"><h2>' + title + '</h2><button class="ghost-button compact-button" type="button" data-hide-advisor>Hide</button></div>' +
     '<div class="advisor-card"><div class="recommendation"><span>Recommended</span><strong>' + escapeHtml(analysis.best.action.label) + '</strong></div>' +
     '<div class="analysis-grid"><div class="analysis-metric"><span>Equity</span><strong>' + percent(analysis.equity) + '</strong></div><div class="analysis-metric"><span>MDF</span><strong>' + percent(analysis.mdf) + '</strong></div><div class="analysis-metric"><span>Target</span><strong>' + percent(analysis.targetAggression) + '</strong></div><div class="analysis-metric"><span>Samples</span><strong>' + analysis.samples + '</strong></div></div>' +
     '<div class="ev-table">' + rows + '</div><p class="note">' + escapeHtml(analysis.best.note) + '</p></div>';
+  const hideButton = els.advisorPanel.querySelector('[data-hide-advisor]');
+  if (hideButton) hideButton.addEventListener('click', function () { setAdvisorVisible(false); });
+}
+
+function setAdvisorVisible(visible) {
+  state.settings.showAdvisor = visible;
+  els.advisorToggle.checked = visible;
+  state.advisorCache = null;
+  render();
 }
 
 function cachedAdvisorAnalysis() {

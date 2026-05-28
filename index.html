@@ -20,7 +20,7 @@
           </div>
         </header>
 
-        <div class="poker-table">
+        <div id="pokerTable" class="poker-table">
           <section id="seatsGrid" class="seats-grid" aria-label="Players"></section>
 
           <section class="board-zone" aria-label="Board and pot">
@@ -97,8 +97,21 @@
             </select>
           </label>
           <label class="toggle-row">
-            <span>AI推奨</span>
-            <input id="advisorToggle" type="checkbox" checked />
+            <span>AI推奨表示</span>
+            <input id="advisorToggle" type="checkbox" />
+          </label>
+          <label class="toggle-row">
+            <span>AI観戦</span>
+            <input id="autoPlayToggle" type="checkbox" />
+          </label>
+          <label class="select-row">
+            <span>演出速度</span>
+            <select id="aiSpeedSelect">
+              <option value="instant">Instant</option>
+              <option value="fast">Fast</option>
+              <option value="normal" selected>Normal</option>
+              <option value="slow">Slow</option>
+            </select>
           </label>
           <label class="select-row">
             <span>思考量</span>
