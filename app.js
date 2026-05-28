@@ -31,6 +31,13 @@ const ROLLOUT_CONFIG = {
   balancedCap: 7,
   deepCap: 12
 };
+const POLICY_PRESETS = {
+  current: { name: 'current', rolloutScale: 1, jamDefenseScale: 1, aggressionScale: 1, callScale: 1 },
+  'no-rollout': { name: 'no-rollout', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1 },
+  'no-jam-defense': { name: 'no-jam-defense', rolloutScale: 1, jamDefenseScale: 0, aggressionScale: 1, callScale: 1 },
+  tight: { name: 'tight', rolloutScale: 1, jamDefenseScale: 1.15, aggressionScale: 0.88, callScale: 0.86 },
+  loose: { name: 'loose', rolloutScale: 1, jamDefenseScale: 0.9, aggressionScale: 1.12, callScale: 1.14 }
+};
 const DEFAULT_RULE_CONFIG = {
   mode: 'cash',
   blind: '1/2',
@@ -224,7 +231,7 @@ function botStyleForSeat(index, playerCount) {
 }
 
 function makePlayer(name, stack, isBot, style) {
-  return { name, stack, hole: [], bet: 0, folded: false, allIn: false, acted: false, totalInvested: 0, isBot, style, hand: { vpip: false, pfr: false } };
+  return { name, stack, hole: [], bet: 0, folded: false, allIn: false, acted: false, totalInvested: 0, isBot, style, policyName: 'current', hand: { vpip: false, pfr: false } };
 }
 
 function makeRead() {
@@ -804,12 +811,14 @@ const FrequencyPolicy = {
     const position = positionFeatures(game, playerIndex);
     const initiative = initiativeFeatures(game, playerIndex);
     const toCall = Math.min(amountToCall(game, playerIndex), game.players[playerIndex].stack);
+    const policy = policyConfigFor(game, playerIndex);
     const ctx = {
       equity: equityResult.equity,
       samples: equityResult.samples,
       profile,
       position,
       initiative,
+      policy,
       boardTexture: textureScore(game.board),
       toCall,
       requiredEquity: toCall > 0 ? toCall / Math.max(1, game.pot + toCall) : 0,
@@ -824,9 +833,16 @@ const FrequencyPolicy = {
     const rows = actions.map(function (action) { return evaluatePolicyAction(game, playerIndex, action, ctx); });
     applyFrequencies(game, rows, ctx);
     rows.sort(function (a, b) { return b.score - a.score; });
-    return { playerIndex, samples: equityResult.samples, equity: equityResult.equity, rangePressure: ctx.rangePressure, boardTexture: ctx.boardTexture, toCall, requiredEquity: ctx.requiredEquity, mdf: ctx.mdf, targetAggression: ctx.targetAggression, profile, position, initiative, best: rows[0] || null, rows };
+    return { playerIndex, samples: equityResult.samples, policy: policy.name, equity: equityResult.equity, rangePressure: ctx.rangePressure, boardTexture: ctx.boardTexture, toCall, requiredEquity: ctx.requiredEquity, mdf: ctx.mdf, targetAggression: ctx.targetAggression, profile, position, initiative, best: rows[0] || null, rows };
   }
 };
+
+function policyConfigFor(game, playerIndex) {
+  const player = game.players[playerIndex] || {};
+  const requested = player.policyName || game.settings.policyName || 'current';
+  const preset = POLICY_PRESETS[requested] || POLICY_PRESETS.current;
+  return Object.assign({}, POLICY_PRESETS.current, preset);
+}
 
 function evaluatePolicyAction(game, playerIndex, action, ctx) {
   const evInfo = approximateActionEv(game, playerIndex, action, ctx);
@@ -864,7 +880,7 @@ function approximateActionEv(game, playerIndex, action, ctx) {
 function blendRolloutEv(game, playerIndex, action, ctx, baseEv, foldProbability) {
   const rollout = rolloutEvForAction(game, playerIndex, action, ctx);
   if (!rollout || rollout.samples <= 0) return { ev: baseEv, baseEv, rolloutEv: null, rolloutSamples: 0, foldProbability };
-  const weight = rolloutWeight(rollout.samples) * rolloutContextWeight(game, action, ctx);
+  const weight = rolloutWeight(rollout.samples) * rolloutContextWeight(game, action, ctx) * ctx.policy.rolloutScale;
   const swing = clamp(rollout.ev - baseEv, -rolloutSwingCap(game, action, ctx), rolloutSwingCap(game, action, ctx));
   return {
     ev: baseEv + swing * weight,
@@ -896,6 +912,7 @@ function rolloutSwingCap(game, action, ctx) {
 
 function rolloutSampleCount(game, ctx) {
   if (game.handOver || game.street === 'preflop' || game.street === 'showdown') return 0;
+  if (!ctx.policy || ctx.policy.rolloutScale <= 0) return 0;
   if ((ctx.samples || 0) < 24) return 0;
   const activeCount = activePlayers(game).length;
   if (activeCount < 2 || activeCount > ROLLOUT_CONFIG.maxPlayers) return 0;
@@ -1051,6 +1068,7 @@ function cloneGameForRollout(game, heroIndex) {
       totalInvested: player.totalInvested,
       isBot: player.isBot,
       style: Object.assign({}, player.style),
+      policyName: player.policyName || 'current',
       hand: Object.assign({}, player.hand)
     };
     if (idx === heroIndex) {
@@ -1129,10 +1147,11 @@ function strategyMass(game, playerIndex, action, ctx) {
       const openFit = sigmoid((ctx.profile.preflop - openThreshold) * 13);
       return { mass: clamp(0.06 + (1 - openFit) * 1.25, 0.03, 1.4), note: 'open range ' + percent(openFit) };
     }
-    if (ctx.facingPreflopJam) {
-      const jamContinue = sigmoid((ctx.profile.preflop - 0.64) * 15 + ctx.profile.blocker * 2.4);
-      const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.08) * 12);
-      return { mass: clamp(0.22 + (1 - jamContinue) * 1.45 + pressureFold * 0.55, 0.08, 2.15), note: 'jam defense ' + percent(jamContinue) };
+    if (ctx.facingPreflopJam && ctx.policy.jamDefenseScale > 0) {
+      const jamContinue = sigmoid((ctx.profile.preflop - 0.58) * 13 + ctx.profile.blocker * 1.8 + (ctx.equity - ctx.requiredEquity) * 6);
+      const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.04) * 10);
+      const jamScale = ctx.policy.jamDefenseScale;
+      return { mass: clamp(0.14 + (1 - jamContinue) * 1.18 * jamScale + pressureFold * 0.38 * jamScale, 0.06, 1.85), note: 'jam defense ' + percent(jamContinue) };
     }
     const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.05) * 11);
     const multiwayFold = Math.min(0.25, (ctx.fieldCount - 1) * 0.07);
@@ -1142,13 +1161,13 @@ function strategyMass(game, playerIndex, action, ctx) {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
     const drawHelp = ctx.profile.draw * 1.4 + ctx.profile.blocker * 0.35;
     const dominatedPenalty = game.street === 'preflop' && ctx.position.playersBehind >= 4 ? 0.18 : 0;
-    if (ctx.facingPreflopJam) {
-      const jamContinue = sigmoid((ctx.profile.preflop - 0.64) * 15 + ctx.profile.blocker * 2.4);
-      const mass = (0.03 + jamContinue * 1.15 + Math.max(0, ctx.equity - ctx.requiredEquity) * 0.8) * style.call;
+    if (ctx.facingPreflopJam && ctx.policy.jamDefenseScale > 0) {
+      const jamContinue = sigmoid((ctx.profile.preflop - 0.58) * 13 + ctx.profile.blocker * 1.8 + (ctx.equity - ctx.requiredEquity) * 6);
+      const mass = (0.04 + jamContinue * 1.25 / ctx.policy.jamDefenseScale + Math.max(0, ctx.equity - ctx.requiredEquity) * 1.1) * style.call * ctx.policy.callScale;
       return { mass: clamp(mass, 0.025, 1.25), note: 'jam call ' + percent(jamContinue) };
     }
     const limpBrake = ctx.unopenedPreflop && !ctx.position.blindDefense ? 0.28 : 1;
-    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * limpBrake / Math.sqrt(ctx.fieldCount);
+    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * ctx.policy.callScale * limpBrake / Math.sqrt(ctx.fieldCount);
     return { mass: clamp(mass, 0.04, 1.65), note: 'pot odds ' + percent(ctx.requiredEquity) };
   }
   if (action.type === 'check') {
@@ -1172,7 +1191,7 @@ function strategyMass(game, playerIndex, action, ctx) {
   const isJam = target >= maxTargetFor(game, playerIndex);
   let jamPenalty = isJam ? (ctx.equity > 0.78 || (game.street === 'river' && ctx.profile.blocker > 0.16) ? 0.72 : 0.18) : 1;
   if (game.street === 'preflop' && isJam && game.pot < 18) jamPenalty *= ctx.equity > 0.86 ? 0.55 : 0.06;
-  const frequencyBoost = 0.45 + ctx.targetAggression * 1.45;
+  const frequencyBoost = 0.45 + ctx.targetAggression * 1.45 * ctx.policy.aggressionScale;
   const polarRaise = game.street === 'preflop' ? ctx.profile.preflop > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.32 && ctx.profile.blocker > 0.15);
   const raiseVsBetPenalty = action.type === 'raise' && ctx.toCall > 0 && !ctx.unopenedPreflop && !polarRaise ? (game.street === 'river' ? 0.1 : 0.35) : 1;
   const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty;
@@ -1230,6 +1249,7 @@ function targetAggressionFrequency(game, playerIndex, ctx) {
   if (game.street !== 'preflop' && !facingBet && ctx.initiative.missedCbetStab) {
     target += game.street === 'flop' ? 0.08 : 0.04;
   }
+  target *= ctx.policy.aggressionScale;
   return clamp(target, facingBet ? 0.04 : 0.08, facingBet ? 0.42 : 0.82);
 }
 

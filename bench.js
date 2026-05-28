@@ -18,6 +18,7 @@ function parseArgs(argv) {
     ante: 0,
     levelHands: 0,
     villain: 'mirror',
+    lineup: 'current',
     json: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -74,13 +75,15 @@ function makeRules(args) {
   };
 }
 
-function runSelfplay(api, players, hands, samples, rules, villain) {
+function runSelfplay(api, players, hands, samples, rules, villain, lineupArg) {
   const totals = Array.from({ length: players }, function () { return 0; });
   const vpip = Array.from({ length: players }, function () { return 0; });
   const pfr = Array.from({ length: players }, function () { return 0; });
   const actionCounts = {};
   const streetActions = {};
   const freqStats = { cbetOpp: 0, cbet: 0, donkOpp: 0, donk: 0 };
+  const lineup = expandLineup(lineupArg, players);
+  const policyStats = {};
   let decisions = 0;
   let cappedHands = 0;
   let bigBlind = 2;
@@ -89,6 +92,7 @@ function runSelfplay(api, players, hands, samples, rules, villain) {
 
   for (let hand = 0; hand < hands; hand += 1) {
     const game = api.createGame(players, { playerCount: players, depth: 'fast', rules }, { logging: false, heroIsBot: true });
+    assignLineup(game, lineup, villain);
     game.dealer = (hand - 1 + players) % players;
     game.handNo = hand;
     api.startHand(game);
@@ -111,19 +115,36 @@ function runSelfplay(api, players, hands, samples, rules, villain) {
     if (guard >= 900) cappedHands += 1;
 
     game.players.forEach(function (player, idx) {
-      totals[idx] += player.stack - startingStack;
-      if (player.hand.vpip) vpip[idx] += 1;
-      if (player.hand.pfr) pfr[idx] += 1;
+      const delta = player.stack - startingStack;
+      const policy = policyLabelForSeat(game, idx, villain);
+      totals[idx] += delta;
+      if (!policyStats[policy]) policyStats[policy] = { policy, chips: 0, seats: 0, vpip: 0, pfr: 0 };
+      policyStats[policy].chips += delta;
+      policyStats[policy].seats += 1;
+      if (player.hand.vpip) {
+        vpip[idx] += 1;
+        policyStats[policy].vpip += 1;
+      }
+      if (player.hand.pfr) {
+        pfr[idx] += 1;
+        policyStats[policy].pfr += 1;
+      }
     });
   }
 
   const elapsedMs = performance.now() - started;
+  const seatPolicies = lineup.map(function (policy, idx) {
+    if (villain === 'jammer' && idx === 1) return 'jammer';
+    if (villain === 'all-jammer' && idx !== 0) return 'all-jammer';
+    return policy || 'current';
+  });
   return {
     players,
     hands,
     samples,
     rules,
     villain,
+    lineup,
     bigBlind,
     decisions,
     cappedHands,
@@ -142,13 +163,45 @@ function runSelfplay(api, players, hands, samples, rules, villain) {
     seats: totals.map(function (chips, idx) {
       return {
         seat: idx,
+        policy: seatPolicies[idx],
         chips,
         bb100: chips / Math.max(1, bigBlind) / hands * 100,
         vpip: vpip[idx] / hands,
         pfr: pfr[idx] / hands,
       };
     }),
+    policies: Object.keys(policyStats).sort().map(function (policy) {
+      const stat = policyStats[policy];
+      return {
+        policy,
+        chips: stat.chips,
+        seatHands: stat.seats,
+        bb100: stat.chips / Math.max(1, bigBlind) / Math.max(1, stat.seats) * 100,
+        vpip: stat.vpip / Math.max(1, stat.seats),
+        pfr: stat.pfr / Math.max(1, stat.seats),
+      };
+    }),
   };
+}
+
+function expandLineup(lineupArg, players) {
+  const names = String(lineupArg || 'current').split(',').map(function (name) { return name.trim(); }).filter(Boolean);
+  const base = names.length > 0 ? names : ['current'];
+  return Array.from({ length: players }, function (_, idx) { return base[idx % base.length]; });
+}
+
+function assignLineup(game, lineup, villain) {
+  game.players.forEach(function (player, idx) {
+    player.policyName = lineup[idx] || 'current';
+    if (villain === 'jammer' && idx === 1) player.policyName = 'jammer';
+    if (villain === 'all-jammer' && idx !== 0) player.policyName = 'all-jammer';
+  });
+}
+
+function policyLabelForSeat(game, idx, villain) {
+  if (villain === 'jammer' && idx === 1) return 'jammer';
+  if (villain === 'all-jammer' && idx !== 0) return 'all-jammer';
+  return game.players[idx].policyName || 'current';
 }
 
 function chooseBenchAction(api, game, current, samples, villain) {
@@ -219,7 +272,10 @@ function printText(results, teacher) {
     console.log(`actions=${JSON.stringify(result.actionCounts)}`);
     console.log(`freq=cbet ${formatPct(result.frequency.cbetRate)} (${result.frequency.cbet}/${result.frequency.cbetOpp}), donk ${formatPct(result.frequency.donkRate)} (${result.frequency.donk}/${result.frequency.donkOpp})`);
     result.seats.forEach(function (seat) {
-      console.log(`  seat ${seat.seat}: ${seat.bb100.toFixed(1)} bb/100, vpip=${formatPct(seat.vpip)}, pfr=${formatPct(seat.pfr)}`);
+      console.log(`  seat ${seat.seat} [${seat.policy}]: ${seat.bb100.toFixed(1)} bb/100, vpip=${formatPct(seat.vpip)}, pfr=${formatPct(seat.pfr)}`);
+    });
+    result.policies.forEach(function (policy) {
+      console.log(`  policy ${policy.policy}: ${policy.bb100.toFixed(1)} bb/100, vpip=${formatPct(policy.vpip)}, pfr=${formatPct(policy.pfr)}`);
     });
   });
   console.log(`teacher: spots=${teacher.spots} top1=${formatPct(teacher.top1)} avgKL=${teacher.avgKl.toFixed(3)}`);
@@ -230,10 +286,10 @@ function main() {
   const api = loadApi(args.seed);
   const rules = makeRules(args);
   const results = args.players.map(function (players) {
-    return runSelfplay(api, players, args.hands, args.samples, rules, args.villain);
+    return runSelfplay(api, players, args.hands, args.samples, rules, args.villain, args.lineup);
   });
   const teacher = runTeacher(api, args.samples);
-  const payload = { seed: args.seed, rules, villain: args.villain, results, teacher };
+  const payload = { seed: args.seed, rules, villain: args.villain, lineup: args.lineup, results, teacher };
   if (args.json) console.log(JSON.stringify(payload, null, 2));
   else printText(results, teacher);
 }
