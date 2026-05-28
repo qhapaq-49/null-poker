@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -43,6 +43,14 @@ const POLICY_PRESETS = {
   'local-sota': {
     name: 'local-sota',
     headsUp: { rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.92, callScale: 0.88, foldScale: 1.1, cbetScale: 1.02, donkScale: 0.6, stabScale: 1, positionScale: 1.12, temperatureScale: 0.9 },
+    sixMax: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 },
+    fullRing: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }
+  },
+  'hu-solid': { name: 'hu-solid', headsUp: { rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.92, callScale: 0.88, foldScale: 1.1, cbetScale: 1.02, donkScale: 0.6, stabScale: 1, positionScale: 1.12, temperatureScale: 0.9 } },
+  'six-table': { name: 'six-table', sixMax: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
+  'ring-read': { name: 'ring-read', fullRing: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
+  'field-tuned': {
+    name: 'field-tuned',
     sixMax: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 },
     fullRing: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }
   },
@@ -949,13 +957,29 @@ function policyConfigFor(game, playerIndex) {
   const player = game.players[playerIndex] || {};
   const requested = player.policyName || game.settings.policyName || 'current';
   const preset = POLICY_PRESETS[requested] || POLICY_PRESETS.current;
-  const config = Object.assign({}, POLICY_PRESETS.current, preset);
   const activeCount = activePlayers(game).length;
+  const config = Object.assign({}, POLICY_PRESETS.current);
+  applyPolicyFieldOverride(config, POLICY_PRESETS.current, game, activeCount);
+  Object.assign(config, policyBaseOverrides(preset));
+  applyPolicyFieldOverride(config, preset, game, activeCount);
+  config.name = preset.name || requested;
+  return config;
+}
+
+function policyBaseOverrides(preset) {
+  const base = Object.assign({}, preset);
+  delete base.headsUp;
+  delete base.sixMax;
+  delete base.fullRing;
+  delete base.duelHeadsUp;
+  return base;
+}
+
+function applyPolicyFieldOverride(config, preset, game, activeCount) {
   if (activeCount === 2 && preset.headsUp) Object.assign(config, preset.headsUp);
   else if (game.players.length >= 8 && preset.fullRing) Object.assign(config, preset.fullRing);
   else if (preset.sixMax) Object.assign(config, preset.sixMax);
-  config.name = preset.name || requested;
-  return config;
+  if (game.players.length === 2 && preset.duelHeadsUp) Object.assign(config, preset.duelHeadsUp);
 }
 
 function evaluatePolicyAction(game, playerIndex, action, ctx) {
