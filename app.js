@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, fullRing: { actionReadScale: 0 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -59,6 +59,7 @@ const POLICY_PRESETS = {
   'hu-read-off': { name: 'hu-read-off', headsUp: { readScale: 0 } },
   'read-light': { name: 'read-light', readScale: 0.65 },
   'read-heavy': { name: 'read-heavy', readScale: 1.35 },
+  'action-read-off': { name: 'action-read-off', actionReadScale: 0, fullRing: { actionReadScale: 0 }, duelHeadsUp: { actionReadScale: 0 } },
   'read-pressure': { name: 'read-pressure', readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 },
   'short-read-pressure': { name: 'short-read-pressure', headsUp: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }, sixMax: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
   'table-adaptive': {
@@ -938,12 +939,12 @@ function sampleCount(game) {
 const FrequencyPolicy = {
   decide: function (game, playerIndex, samples) {
     const actions = legalActions(game, playerIndex);
-    const equityResult = estimateEquity(game, playerIndex, samples);
+    const policy = policyConfigFor(game, playerIndex);
+    const equityResult = estimateEquity(game, playerIndex, samples, policy);
     const profile = handProfile(game, playerIndex);
     const position = positionFeatures(game, playerIndex);
     const initiative = initiativeFeatures(game, playerIndex);
     const toCall = Math.min(amountToCall(game, playerIndex), game.players[playerIndex].stack);
-    const policy = policyConfigFor(game, playerIndex);
     const ctx = {
       equity: equityResult.equity,
       samples: equityResult.samples,
@@ -1208,6 +1209,7 @@ function cloneGameForRollout(game, heroIndex) {
     message: game.message,
     logging: false
   };
+  const samplingPolicy = policyConfigFor(game, heroIndex);
   const known = game.players[heroIndex].hole.concat(game.board).filter(Boolean).map(copyCard);
   const deck = freshDeckWithout(known);
   game.players.forEach(function (player, idx) {
@@ -1228,7 +1230,7 @@ function cloneGameForRollout(game, heroIndex) {
     if (idx === heroIndex) {
       copy.hole = player.hole.map(copyCard);
     } else if (!player.folded) {
-      const hole = drawWeightedOpponentHole(game, deck, idx).map(copyCard);
+      const hole = drawWeightedOpponentHole(game, deck, idx, samplingPolicy).map(copyCard);
       copy.hole = hole;
       removeCardsFromDeck(deck, hole);
     }
@@ -1460,7 +1462,7 @@ function actionOrder(kind, game) {
   return order;
 }
 
-function estimateEquity(game, playerIndex, samples) {
+function estimateEquity(game, playerIndex, samples, policy) {
   const player = game.players[playerIndex];
   const opponents = activePlayers(game).filter(function (idx) { return idx !== playerIndex; });
   const known = player.hole.concat(game.board).filter(Boolean);
@@ -1473,7 +1475,7 @@ function estimateEquity(game, playerIndex, samples) {
     const deck = available.slice();
     const sampled = new Map();
     opponents.forEach(function (idx) {
-      const hole = drawWeightedOpponentHole(game, deck, idx);
+      const hole = drawWeightedOpponentHole(game, deck, idx, policy);
       sampled.set(idx, hole);
       removeCardsFromDeck(deck, hole);
     });
@@ -1507,7 +1509,7 @@ function freshDeckWithout(knownCards) {
   return deck;
 }
 
-function drawWeightedOpponentHole(game, deck, opponentIndex) {
+function drawWeightedOpponentHole(game, deck, opponentIndex, policy) {
   let fallback = null;
   for (let attempt = 0; attempt < 34; attempt += 1) {
     const firstIndex = Math.floor(Math.random() * deck.length);
@@ -1515,7 +1517,7 @@ function drawWeightedOpponentHole(game, deck, opponentIndex) {
     if (secondIndex >= firstIndex) secondIndex += 1;
     const hole = [deck[firstIndex], deck[secondIndex]];
     fallback = hole;
-    if (Math.random() <= rangeWeight(game, hole, opponentIndex)) return hole;
+    if (Math.random() <= rangeWeight(game, hole, opponentIndex, policy)) return hole;
   }
   return fallback;
 }
@@ -1544,8 +1546,62 @@ function rangePressure(game, playerIndex) {
   return clamp(stats.aggression * 0.105 + stats.voluntary / 170 + streetBoost + betPressure * 0.25, 0, 0.84);
 }
 
-function rangeWeight(game, hole, playerIndex) {
-  const pressure = rangePressure(game, playerIndex);
+function currentHandRangePressure(game, playerIndex) {
+  const player = game.players[playerIndex];
+  if (!player) return 0;
+  const actions = game.handActions.filter(function (action) {
+    return action.player === playerIndex && action.type !== 'ante' && action.type !== 'SB' && action.type !== 'BB';
+  });
+  if (actions.length === 0) return 0;
+
+  const bb = Math.max(1, bigBlindAmount(game));
+  const startingStack = Math.max(1, startingStackAmount(game));
+  const preflopOrder = actionOrder('preflop', game);
+  const orderIndex = preflopOrder.indexOf(playerIndex);
+  const earlySeatBoost = orderIndex >= 0 ? Math.max(0, preflopOrder.length - orderIndex - 1) * 0.012 : 0;
+  let pressure = 0;
+  let aggressionCount = 0;
+  let callCount = 0;
+  let checkCount = 0;
+
+  actions.forEach(function (action) {
+    const amount = Math.max(0, Number(action.amount) || 0);
+    const target = Math.max(amount, Number(action.target) || 0);
+    const sizeBb = target > 0 ? target / bb : amount / bb;
+    const sizeBoost = clamp(Math.log2(1 + sizeBb) * 0.025, 0, 0.1);
+    const isCurrentStreet = action.street === game.street;
+    if (action.aggressive) {
+      aggressionCount += 1;
+      const preflopJam = action.street === 'preflop' && (target >= startingStack * 0.45 || player.allIn);
+      if (preflopJam) {
+        pressure += 0.035 + (isCurrentStreet ? 0.015 : 0);
+        return;
+      }
+      pressure += (action.street === 'preflop' ? 0.11 : 0.085) + (action.type === 'raise' ? 0.045 : 0.02) + sizeBoost + (isCurrentStreet ? 0.035 : 0);
+      if (action.street === 'preflop') pressure += earlySeatBoost;
+    } else if (action.type === 'call') {
+      callCount += 1;
+      pressure += (action.street === 'preflop' ? 0.038 : 0.03) + sizeBoost * 0.55 + (isCurrentStreet ? 0.015 : 0);
+    } else if (action.type === 'check') {
+      checkCount += 1;
+      pressure -= isCurrentStreet ? 0.018 : 0.01;
+    }
+  });
+
+  if (aggressionCount > 1) pressure += Math.min(0.16, (aggressionCount - 1) * 0.055);
+  if (callCount > 1 && aggressionCount === 0) pressure += Math.min(0.06, (callCount - 1) * 0.025);
+  if (checkCount > 1 && aggressionCount === 0) pressure -= Math.min(0.05, (checkCount - 1) * 0.015);
+  pressure += clamp((player.totalInvested || player.bet || 0) / startingStack * 0.18, 0, 0.12);
+  return clamp(pressure, 0, 0.64);
+}
+
+function policyScalar(policy, key, fallback) {
+  const value = policy ? Number(policy[key]) : NaN;
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function rangeWeight(game, hole, playerIndex, policy) {
+  const pressure = clamp(rangePressure(game, playerIndex) + currentHandRangePressure(game, playerIndex) * policyScalar(policy, 'actionReadScale', 0), 0, 0.9);
   if (pressure <= 0.03) return 1;
   const preflop = preflopStrength(hole);
   const made = game.board.length >= 3 ? madeOrDrawStrength(hole, game.board) : preflop;
