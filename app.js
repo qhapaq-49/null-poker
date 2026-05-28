@@ -92,10 +92,13 @@ const DEFAULT_TEACHER_ROWS = [
 
 const AI_SPEED_DELAYS = { instant: 0, fast: 180, normal: 720, slow: 1250 };
 const NEXT_HAND_DELAYS = { instant: 180, fast: 420, normal: 900, slow: 1400 };
+const ACTION_FLASH_MS = 920;
 
 const els = {};
 let state = null;
 let botTimer = null;
+let actionFlashTimer = null;
+let actionFlashSerial = 0;
 
 function init() {
   [
@@ -255,6 +258,7 @@ function createGame(playerCount, settings, options) {
     settings: Object.assign({ playerCount: count, showAdvisor: false, autoPlay: false, aiSpeed: 'normal', depth: 'balanced', peekAiCards: false }, settingsObj, { rules }),
     lastAiAnalysis: null,
     advisorCache: null,
+    visualAction: null,
     message: 'New Handで開始',
     logging: opts.logging !== false
   };
@@ -311,6 +315,8 @@ function startHand(game) {
   game.handOver = false;
   game.log = [];
   game.handActions = [];
+  game.visualAction = null;
+  clearActionFlashTimer();
   game.reads = game.players.map(function (_, idx) { return decayRead(game.reads[idx]); });
   game.lastAiAnalysis = null;
   game.advisorCache = null;
@@ -624,6 +630,7 @@ function applyAction(game, playerIndex, action) {
     player.folded = true;
     addLog(game, player.name + ' folds');
     game.handActions.push({ player: playerIndex, street: game.street, type: 'fold', amount: 0, aggressive: false });
+    showActionFlash(game, playerIndex, 'Fold');
     if (!finishByFoldIfNeeded(game)) {
       afterAction(game);
     }
@@ -633,6 +640,7 @@ function applyAction(game, playerIndex, action) {
   if (action.type === 'check') {
     addLog(game, player.name + ' checks');
     game.handActions.push({ player: playerIndex, street: game.street, type: 'check', amount: 0, aggressive: false });
+    showActionFlash(game, playerIndex, 'Check');
     afterAction(game);
     return;
   }
@@ -642,6 +650,7 @@ function applyAction(game, playerIndex, action) {
     markVoluntary(game, playerIndex, paid, false);
     addLog(game, player.name + ' calls ' + paid);
     game.handActions.push({ player: playerIndex, street: game.street, type: 'call', amount: paid, aggressive: false });
+    showActionFlash(game, playerIndex, 'Call ' + paid);
     afterAction(game);
     return;
   }
@@ -665,7 +674,30 @@ function applyAction(game, playerIndex, action) {
   const verb = previousMaxBet > previousPlayerBet ? 'raises to' : 'bets';
   addLog(game, player.name + ' ' + verb + ' ' + target);
   game.handActions.push({ player: playerIndex, street: game.street, type: action.type, amount: paid, target, aggressive: true });
+  showActionFlash(game, playerIndex, (action.type === 'raise' ? 'Raise ' : 'Bet ') + target);
   afterAction(game);
+}
+
+function showActionFlash(game, playerIndex, text) {
+  const id = actionFlashSerial += 1;
+  game.visualAction = { id, player: playerIndex, text };
+  if (typeof window === 'undefined' || game !== state) return;
+  if (game.settings && game.settings.aiSpeed === 'instant') {
+    game.visualAction = null;
+    return;
+  }
+  clearActionFlashTimer();
+  actionFlashTimer = window.setTimeout(function () {
+    if (state === game && state.visualAction && state.visualAction.id === id) {
+      state.visualAction = null;
+      render();
+    }
+  }, ACTION_FLASH_MS);
+}
+
+function clearActionFlashTimer() {
+  if (actionFlashTimer != null && typeof window !== 'undefined') window.clearTimeout(actionFlashTimer);
+  actionFlashTimer = null;
 }
 
 function markVoluntary(game, playerIndex, paid, aggressive) {
@@ -1934,12 +1966,8 @@ function renderSeat(playerIndex) {
 }
 
 function latestActionForPlayer(playerIndex) {
-  if (!state || !state.handActions) return '';
-  for (let i = state.handActions.length - 1; i >= 0; i -= 1) {
-    const action = state.handActions[i];
-    if (action.player === playerIndex) return actionSummary(action);
-  }
-  return '';
+  if (!state || !state.visualAction || state.visualAction.player !== playerIndex) return '';
+  return state.visualAction.text || '';
 }
 
 function actionSummary(action) {

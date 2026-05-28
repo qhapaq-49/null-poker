@@ -431,27 +431,43 @@ button:disabled {
 
 .action-flash {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
-  max-width: calc(100% - 16px);
-  padding: 5px 8px;
+  left: 50%;
+  bottom: 12px;
+  z-index: 3;
+  max-width: calc(100% - 18px);
+  padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(216, 179, 95, 0.9);
+  background: #f2cc76;
   color: #17140d;
-  font-size: 0.75rem;
-  font-weight: 840;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38), 0 0 0 2px rgba(23, 20, 13, 0.18);
+  font-size: 0.88rem;
+  font-weight: 900;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
-  animation: action-pop 820ms ease-out;
+  transform: translateX(-50%);
+  animation: action-pop 920ms ease-out forwards;
+}
+
+.action-flash::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
 }
 
 @keyframes action-pop {
-  0% { opacity: 0; transform: translateY(7px) scale(0.94); }
-  35% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0.82; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+  16% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
+  32% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  76% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.98); }
 }
 
 @keyframes seat-thinking {
