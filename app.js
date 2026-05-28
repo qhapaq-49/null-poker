@@ -40,6 +40,12 @@ const POLICY_PRESETS = {
   'hu-low-donk': { name: 'hu-low-donk', headsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
   'hu-wide-call': { name: 'hu-wide-call', headsUp: { aggressionScale: 1.05, callScale: 1.04, foldScale: 0.94, cbetScale: 1.06, donkScale: 0.65, stabScale: 1.12, positionScale: 1.08, temperatureScale: 1.05 } },
   'hu-tight-pressure': { name: 'hu-tight-pressure', headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 } },
+  'local-sota': {
+    name: 'local-sota',
+    headsUp: { rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.92, callScale: 0.88, foldScale: 1.1, cbetScale: 1.02, donkScale: 0.6, stabScale: 1, positionScale: 1.12, temperatureScale: 0.9 },
+    sixMax: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 },
+    fullRing: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }
+  },
   adaptive: { name: 'adaptive', headsUp: { aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 } },
   'read-off': { name: 'read-off', readScale: 0 },
   'hu-read-off': { name: 'hu-read-off', headsUp: { readScale: 0 } },
@@ -878,7 +884,8 @@ function policyConfigFor(game, playerIndex) {
   const requested = player.policyName || game.settings.policyName || 'current';
   const preset = POLICY_PRESETS[requested] || POLICY_PRESETS.current;
   const config = Object.assign({}, POLICY_PRESETS.current, preset);
-  if (game.players.length === 2 && preset.headsUp) Object.assign(config, preset.headsUp);
+  const activeCount = activePlayers(game).length;
+  if (activeCount === 2 && preset.headsUp) Object.assign(config, preset.headsUp);
   else if (game.players.length >= 8 && preset.fullRing) Object.assign(config, preset.fullRing);
   else if (preset.sixMax) Object.assign(config, preset.sixMax);
   config.name = preset.name || requested;

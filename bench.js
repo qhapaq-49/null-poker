@@ -105,6 +105,8 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
   const lineup = expandLineup(lineupArg, players);
   const policyStats = {};
   let decisions = 0;
+  let headsUpDecisions = 0;
+  let multiwayDecisions = 0;
   let cappedHands = 0;
   let bigBlind = 2;
   let startingStack = 200;
@@ -125,6 +127,7 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
     let guard = 0;
     while (!game.handOver && guard < 900) {
       const current = game.current;
+      const isHeadsUpDecision = benchActivePlayers(game).length === 2;
       const action = chooseBenchAction(api, game, current, samples, villain);
       if (!action) break;
       actionCounts[action.type] = (actionCounts[action.type] || 0) + 1;
@@ -133,6 +136,8 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
       recordFrequencySpot(game, current, action, freqStats);
       api.applyAction(game, current, action);
       decisions += 1;
+      if (isHeadsUpDecision) headsUpDecisions += 1;
+      else multiwayDecisions += 1;
       guard += 1;
     }
     if (guard >= 900) cappedHands += 1;
@@ -174,6 +179,7 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
     rotateLineup,
     bigBlind,
     decisions,
+    decisionContext: makeDecisionContextSummary(headsUpDecisions, multiwayDecisions),
     cappedHands,
     elapsedMs,
     msPerDecision: elapsedMs / Math.max(1, decisions),
@@ -202,6 +208,10 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
       };
     }),
   };
+}
+
+function benchActivePlayers(game) {
+  return game.players.map(function (_, idx) { return idx; }).filter(function (idx) { return !game.players[idx].folded; });
 }
 
 function makeBenchRead() {
@@ -348,6 +358,15 @@ function runTeacher(api, samples) {
   return { spots: result.rows.length, top1: result.top1, avgKl: result.avgKl, rows: result.rows };
 }
 
+function makeDecisionContextSummary(headsUp, multiway) {
+  const decisions = headsUp + multiway;
+  return { headsUp, multiway, headsUpRate: headsUp / Math.max(1, decisions) };
+}
+
+function formatDecisionContextLine(context) {
+  return 'huDecisions ' + formatPct(context.headsUpRate) + ' (' + context.headsUp + '/' + (context.headsUp + context.multiway) + ')';
+}
+
 function formatFrequencyLine(frequency) {
   return 'freq=' +
     'cbet ' + formatPct(frequency.cbetRate) + ' (' + frequency.cbet + '/' + frequency.cbetOpp + ')' +
@@ -364,6 +383,7 @@ function formatPct(value) {
 function printText(results, teacher) {
   results.forEach(function (result) {
     console.log(`players=${result.players} villain=${result.villain} lineup=${result.lineup.join(',')} rotate=${result.rotateLineup} hands=${result.hands} decisions=${result.decisions} ms/decision=${result.msPerDecision.toFixed(2)} capped=${result.cappedHands}`);
+    console.log(formatDecisionContextLine(result.decisionContext));
     console.log(`actions=${JSON.stringify(result.actionCounts)}`);
     console.log(formatFrequencyLine(result.frequency));
     result.seats.forEach(function (seat) {
@@ -483,6 +503,7 @@ function makeAggregateGroup(result) {
     elapsedMs: 0,
     bigBlind: result.bigBlind,
     frequency: zeroFrequencyCounts(),
+    decisionContext: { headsUp: 0, multiway: 0 },
     policies: {},
   };
 }
@@ -493,6 +514,8 @@ function addResultToAggregate(group, result) {
   group.decisions += result.decisions;
   group.cappedHands += result.cappedHands;
   group.elapsedMs += result.elapsedMs;
+  group.decisionContext.headsUp += result.decisionContext ? result.decisionContext.headsUp : 0;
+  group.decisionContext.multiway += result.decisionContext ? result.decisionContext.multiway : 0;
   addFrequencyCounts(group.frequency, result.frequency);
   result.policies.forEach(function (policy) {
     if (!group.policies[policy.policy]) group.policies[policy.policy] = { policy: policy.policy, chips: 0, seatHands: 0, vpip: 0, pfr: 0, bb100s: [] };
@@ -510,6 +533,7 @@ function finalizeAggregateGroup(group) {
   return Object.assign({}, group, {
     msPerDecision: group.elapsedMs / Math.max(1, group.decisions),
     frequency,
+    decisionContext: makeDecisionContextSummary(group.decisionContext.headsUp, group.decisionContext.multiway),
     policies: Object.keys(group.policies).sort().map(function (policy) {
       const stat = group.policies[policy];
       return {
@@ -560,6 +584,7 @@ function aggregateTeachers(seedRuns) {
 function printAggregate(groups, teacher) {
   groups.forEach(function (group) {
     console.log(`aggregate players=${group.players} villain=${group.villain} matchup=${group.matchup} lineup=${group.lineup.join(',')} rotate=${group.rotateLineup} seeds=${group.runs} hands=${group.hands} ms/decision=${group.msPerDecision.toFixed(2)} capped=${group.cappedHands}`);
+    console.log(formatDecisionContextLine(group.decisionContext));
     console.log(formatFrequencyLine(group.frequency));
     group.policies.forEach(function (policy) {
       console.log(`  policy ${policy.policy}: ${policy.bb100.toFixed(1)} bb/100, seedMean=${policy.meanBb100.toFixed(1)} +/- ${policy.stderrBb100.toFixed(1)}, vpip=${formatPct(policy.vpip)}, pfr=${formatPct(policy.pfr)}`);
