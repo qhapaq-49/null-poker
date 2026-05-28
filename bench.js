@@ -17,6 +17,7 @@ function parseArgs(argv) {
     stackBb: 100,
     ante: 0,
     levelHands: 0,
+    villain: 'mirror',
     json: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -59,7 +60,7 @@ function loadApi(seed) {
   const context = { console, performance, Math: seededMath };
   vm.createContext(context);
   const source = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
-  vm.runInContext(source + `\nthis.__api = {\n  createGame, startHand, FrequencyPolicy, chooseMixedAction, applyAction,\n  evaluateTeacherRows, DEFAULT_TEACHER_ROWS\n};`, context);
+  vm.runInContext(source + `\nthis.__api = {\n  createGame, startHand, FrequencyPolicy, chooseMixedAction, applyAction, legalActions,\n  evaluateTeacherRows, DEFAULT_TEACHER_ROWS\n};`, context);
   return context.__api;
 }
 
@@ -73,7 +74,7 @@ function makeRules(args) {
   };
 }
 
-function runSelfplay(api, players, hands, samples, rules) {
+function runSelfplay(api, players, hands, samples, rules, villain) {
   const totals = Array.from({ length: players }, function () { return 0; });
   const vpip = Array.from({ length: players }, function () { return 0; });
   const pfr = Array.from({ length: players }, function () { return 0; });
@@ -97,8 +98,8 @@ function runSelfplay(api, players, hands, samples, rules) {
     let guard = 0;
     while (!game.handOver && guard < 900) {
       const current = game.current;
-      const analysis = api.FrequencyPolicy.decide(game, current, samples);
-      const action = api.chooseMixedAction(analysis);
+      const action = chooseBenchAction(api, game, current, samples, villain);
+      if (!action) break;
       actionCounts[action.type] = (actionCounts[action.type] || 0) + 1;
       const streetKey = game.street + ':' + action.type;
       streetActions[streetKey] = (streetActions[streetKey] || 0) + 1;
@@ -122,6 +123,7 @@ function runSelfplay(api, players, hands, samples, rules) {
     hands,
     samples,
     rules,
+    villain,
     bigBlind,
     decisions,
     cappedHands,
@@ -147,6 +149,27 @@ function runSelfplay(api, players, hands, samples, rules) {
       };
     }),
   };
+}
+
+function chooseBenchAction(api, game, current, samples, villain) {
+  if ((villain === 'jammer' && current === 1) || (villain === 'all-jammer' && current !== 0)) return chooseJammerAction(api, game, current);
+  const analysis = api.FrequencyPolicy.decide(game, current, samples);
+  return api.chooseMixedAction(analysis);
+}
+
+function chooseJammerAction(api, game, current) {
+  const actions = api.legalActions(game, current);
+  if (actions.length === 0) return null;
+  const aggressive = actions.filter(function (action) { return action.type === 'bet' || action.type === 'raise'; });
+  if (game.street === 'preflop' && aggressive.length > 0) {
+    const player = game.players[current];
+    const maxBet = Math.max.apply(null, game.players.map(function (p) { return p.bet; }));
+    return { type: maxBet > player.bet ? 'raise' : 'bet', label: 'Jam', target: player.bet + player.stack, sizeKey: 'jam', potFraction: null };
+  }
+  const call = actions.find(function (action) { return action.type === 'call'; });
+  const check = actions.find(function (action) { return action.type === 'check'; });
+  const fold = actions.find(function (action) { return action.type === 'fold'; });
+  return call || check || fold || actions[0];
 }
 
 function recordFrequencySpot(game, current, action, stats) {
@@ -192,7 +215,7 @@ function formatPct(value) {
 
 function printText(results, teacher) {
   results.forEach(function (result) {
-    console.log(`players=${result.players} hands=${result.hands} decisions=${result.decisions} ms/decision=${result.msPerDecision.toFixed(2)} capped=${result.cappedHands}`);
+    console.log(`players=${result.players} villain=${result.villain} hands=${result.hands} decisions=${result.decisions} ms/decision=${result.msPerDecision.toFixed(2)} capped=${result.cappedHands}`);
     console.log(`actions=${JSON.stringify(result.actionCounts)}`);
     console.log(`freq=cbet ${formatPct(result.frequency.cbetRate)} (${result.frequency.cbet}/${result.frequency.cbetOpp}), donk ${formatPct(result.frequency.donkRate)} (${result.frequency.donk}/${result.frequency.donkOpp})`);
     result.seats.forEach(function (seat) {
@@ -207,10 +230,10 @@ function main() {
   const api = loadApi(args.seed);
   const rules = makeRules(args);
   const results = args.players.map(function (players) {
-    return runSelfplay(api, players, args.hands, args.samples, rules);
+    return runSelfplay(api, players, args.hands, args.samples, rules, args.villain);
   });
   const teacher = runTeacher(api, args.samples);
-  const payload = { seed: args.seed, rules, results, teacher };
+  const payload = { seed: args.seed, rules, villain: args.villain, results, teacher };
   if (args.json) console.log(JSON.stringify(payload, null, 2));
   else printText(results, teacher);
 }

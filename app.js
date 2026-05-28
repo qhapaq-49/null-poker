@@ -23,6 +23,14 @@ const BET_SIZE_BUCKETS = {
   postflopMultiway: [0.25, 0.33, 0.5, 0.75, 1],
   postflopRaise: [0.5, 0.75, 1, 1.5]
 };
+const ROLLOUT_CONFIG = {
+  maxPlayers: 3,
+  maxSteps: 70,
+  policyEquitySamples: 3,
+  fastCap: 3,
+  balancedCap: 7,
+  deepCap: 12
+};
 const DEFAULT_RULE_CONFIG = {
   mode: 'cash',
   blind: '1/2',
@@ -809,6 +817,7 @@ const FrequencyPolicy = {
       fieldCount: Math.max(1, activePlayers(game).length - 1),
       rangePressure: maxOpponentPressure(game, playerIndex),
       unopenedPreflop: game.street === 'preflop' && lastAggressorOnStreet(game, 'preflop') == null && currentBet(game) <= bigBlindAmount(game),
+      facingPreflopJam: game.street === 'preflop' && toCall > bigBlindAmount(game) * 10 && currentBet(game) >= startingStackAmount(game) * 0.45,
       targetAggression: 0
     };
     ctx.targetAggression = targetAggressionFrequency(game, playerIndex, ctx);
@@ -822,17 +831,18 @@ const FrequencyPolicy = {
 function evaluatePolicyAction(game, playerIndex, action, ctx) {
   const evInfo = approximateActionEv(game, playerIndex, action, ctx);
   const massInfo = strategyMass(game, playerIndex, action, ctx);
-  return { action, ev: evInfo.ev, foldProbability: evInfo.foldProbability, strategyMass: massInfo.mass, score: 0, frequency: 0, note: massInfo.note };
+  return { action, ev: evInfo.ev, baseEv: evInfo.baseEv, rolloutEv: evInfo.rolloutEv, rolloutSamples: evInfo.rolloutSamples, foldProbability: evInfo.foldProbability, strategyMass: massInfo.mass, score: 0, frequency: 0, note: massInfo.note };
 }
 
 function approximateActionEv(game, playerIndex, action, ctx) {
   const player = game.players[playerIndex];
   const pot = game.pot;
-  if (action.type === 'fold') return { ev: 0, foldProbability: 0 };
+  if (action.type === 'fold') return { ev: 0, baseEv: 0, rolloutEv: null, rolloutSamples: 0, foldProbability: 0 };
   if (action.type === 'check' || action.type === 'call') {
     const cost = action.type === 'call' ? Math.min(amountToCall(game, playerIndex), player.stack) : 0;
     const realization = equityRealization(game, playerIndex, cost, ctx);
-    return { ev: ctx.equity * realization * (pot + cost) - cost, foldProbability: 0 };
+    const ev = ctx.equity * realization * (pot + cost) - cost;
+    return blendRolloutEv(game, playerIndex, action, ctx, ev, 0);
   }
 
   const target = action.target;
@@ -848,7 +858,224 @@ function approximateActionEv(game, playerIndex, action, ctx) {
   allFoldProbability = clamp(allFoldProbability, 0, 0.86);
   const calledEv = ctx.equity * equityRealization(game, playerIndex, addCost, ctx) * (pot + addCost + expectedCallPot) - addCost;
   const ev = allFoldProbability * pot + (1 - allFoldProbability) * calledEv - largeBetRiskPenalty(game, playerIndex, action, ctx, addCost, pot);
-  return { ev, foldProbability: allFoldProbability };
+  return blendRolloutEv(game, playerIndex, action, ctx, ev, allFoldProbability);
+}
+
+function blendRolloutEv(game, playerIndex, action, ctx, baseEv, foldProbability) {
+  const rollout = rolloutEvForAction(game, playerIndex, action, ctx);
+  if (!rollout || rollout.samples <= 0) return { ev: baseEv, baseEv, rolloutEv: null, rolloutSamples: 0, foldProbability };
+  const weight = rolloutWeight(rollout.samples) * rolloutContextWeight(game, action, ctx);
+  const swing = clamp(rollout.ev - baseEv, -rolloutSwingCap(game, action, ctx), rolloutSwingCap(game, action, ctx));
+  return {
+    ev: baseEv + swing * weight,
+    baseEv,
+    rolloutEv: rollout.ev,
+    rolloutSamples: rollout.samples,
+    foldProbability
+  };
+}
+
+function rolloutWeight(samples) {
+  return clamp(0.1 + samples * 0.025, 0.14, 0.34);
+}
+
+function rolloutContextWeight(game, action, ctx) {
+  let weight = activePlayers(game).length > 2 ? 0.72 : 1;
+  if ((action.type === 'bet' || action.type === 'raise') && ctx.initiative.isDonkLead) weight *= 0.28;
+  if (action.type === 'check' && ctx.initiative.isDonkLead) weight *= 0.72;
+  if (ctx.initiative.missedCbetStab && ctx.position.hasPosition) weight *= 1.08;
+  if (game.street === 'river') weight *= 0.65;
+  return clamp(weight, 0.12, 1.08);
+}
+
+function rolloutSwingCap(game, action, ctx) {
+  const base = Math.max(bigBlindAmount(game) * 2.5, game.pot * (action.type === 'raise' ? 0.9 : 0.62));
+  const callPressure = ctx.toCall > 0 ? ctx.toCall * 0.35 : 0;
+  return base + callPressure;
+}
+
+function rolloutSampleCount(game, ctx) {
+  if (game.handOver || game.street === 'preflop' || game.street === 'showdown') return 0;
+  if ((ctx.samples || 0) < 24) return 0;
+  const activeCount = activePlayers(game).length;
+  if (activeCount < 2 || activeCount > ROLLOUT_CONFIG.maxPlayers) return 0;
+  const depth = game.settings && game.settings.depth ? game.settings.depth : 'balanced';
+  const depthCap = depth === 'deep' ? ROLLOUT_CONFIG.deepCap : depth === 'balanced' ? ROLLOUT_CONFIG.balancedCap : ROLLOUT_CONFIG.fastCap;
+  const sampleScaled = Math.max(1, Math.round(Math.sqrt(Math.max(1, ctx.samples || 1)) / 2));
+  const fieldPenalty = Math.max(0, activeCount - 2);
+  return Math.max(0, Math.min(depthCap, sampleScaled) - fieldPenalty);
+}
+
+function rolloutEvForAction(game, playerIndex, action, ctx) {
+  const samples = rolloutSampleCount(game, ctx);
+  if (samples <= 0) return null;
+  let total = 0;
+  let used = 0;
+  for (let i = 0; i < samples; i += 1) {
+    const rollout = cloneGameForRollout(game, playerIndex);
+    const baseStack = rollout.players[playerIndex].stack;
+    applyAction(rollout, playerIndex, cloneAction(action));
+    simulateRollout(rollout, playerIndex, ROLLOUT_CONFIG.maxSteps);
+    total += rollout.players[playerIndex].stack - baseStack;
+    used += 1;
+  }
+  return used > 0 ? { ev: total / used, samples: used } : null;
+}
+
+function simulateRollout(game, heroIndex, maxSteps) {
+  let guard = 0;
+  while (!game.handOver && game.current != null && guard < maxSteps) {
+    const current = game.current;
+    const action = rolloutChooseAction(game, current, heroIndex);
+    if (!action) break;
+    applyAction(game, current, action);
+    guard += 1;
+  }
+  if (!game.handOver) runoutAndShowdown(game);
+}
+
+function rolloutChooseAction(game, playerIndex) {
+  const actions = legalActions(game, playerIndex);
+  if (actions.length === 0) return null;
+  const toCall = Math.min(amountToCall(game, playerIndex), game.players[playerIndex].stack);
+  const callAction = actions.find(function (action) { return action.type === 'call'; });
+  const checkAction = actions.find(function (action) { return action.type === 'check'; });
+  const foldAction = actions.find(function (action) { return action.type === 'fold'; });
+  const aggressiveActions = actions.filter(function (action) { return action.type === 'bet' || action.type === 'raise'; });
+  const equity = rolloutKnownEquity(game, playerIndex, ROLLOUT_CONFIG.policyEquitySamples);
+  const profile = handProfile(game, playerIndex);
+  const position = positionFeatures(game, playerIndex);
+  const initiative = initiativeFeatures(game, playerIndex);
+  const boardTexture = textureScore(game.board);
+  const fieldCount = Math.max(1, activePlayers(game).length - 1);
+
+  if (toCall > 0) {
+    const required = toCall / Math.max(1, game.pot + toCall);
+    const continueScore = equity + profile.draw * 0.75 + profile.blocker * 0.22 + (position.hasPosition ? 0.035 : -0.025) - (fieldCount - 1) * 0.045;
+    const polarScore = equity + profile.draw * 1.1 + profile.blocker * 0.55;
+    if (aggressiveActions.length > 0 && polarScore > required + (game.street === 'river' ? 0.26 : 0.2) && Math.random() < clamp((polarScore - required - 0.14) * 1.4, 0.04, 0.42)) {
+      return selectRolloutAggressiveAction(aggressiveActions, equity, profile, boardTexture);
+    }
+    if (callAction && continueScore >= required + (game.street === 'river' ? 0.015 : 0.035)) return callAction;
+    return foldAction || callAction || actions[0];
+  }
+
+  const targetFrequency = rolloutBetFrequency(game, equity, profile, position, initiative, boardTexture, fieldCount);
+  if (aggressiveActions.length > 0 && Math.random() < targetFrequency) {
+    return selectRolloutAggressiveAction(aggressiveActions, equity, profile, boardTexture);
+  }
+  return checkAction || actions[0];
+}
+
+function rolloutBetFrequency(game, equity, profile, position, initiative, boardTexture, fieldCount) {
+  const streetBase = game.street === 'flop' ? 0.44 : game.street === 'turn' ? 0.34 : 0.28;
+  let target = streetBase + position.late * 0.16 - boardTexture * 0.08 - (fieldCount - 1) * 0.12;
+  if (initiative.hasInitiative) target += game.street === 'flop' ? 0.18 : 0.1;
+  if (initiative.isDonkLead) target -= game.street === 'flop' ? 0.22 : 0.14;
+  if (initiative.missedCbetStab) target += position.hasPosition ? 0.18 : 0.08;
+  target += (equity - 0.5) * 0.65 + profile.draw * 1.35 + profile.blocker * 0.45;
+  return clamp(target, 0.04, position.hasPosition && fieldCount === 1 ? 0.92 : 0.78);
+}
+
+function selectRolloutAggressiveAction(actions, equity, profile, boardTexture) {
+  const desired = equity > 0.72 ? 0.75 : profile.draw > 0.06 || profile.blocker > 0.12 || boardTexture > 0.55 ? 0.5 : 0.33;
+  const candidates = actions.filter(function (action) { return action.sizeKey !== 'jam' || equity > 0.78; });
+  const pool = candidates.length > 0 ? candidates : actions;
+  return pool.slice().sort(function (a, b) {
+    return Math.abs((a.potFraction || desired) - desired) - Math.abs((b.potFraction || desired) - desired);
+  })[0];
+}
+
+function rolloutKnownEquity(game, playerIndex, samples) {
+  const contenders = activePlayers(game);
+  const player = game.players[playerIndex];
+  if (!player || player.hole.length !== 2) return 0.5;
+  const opponents = contenders.filter(function (idx) { return idx !== playerIndex && game.players[idx].hole.length === 2; });
+  if (opponents.length === 0) return 1;
+  const loops = game.street === 'river' || game.board.length >= 5 ? 1 : Math.max(1, samples || 1);
+  let score = 0;
+  for (let i = 0; i < loops; i += 1) {
+    const deck = game.deck.slice();
+    const board = game.board.map(copyCard);
+    while (board.length < 5) board.push(drawRandomFrom(deck));
+    const playerScore = evaluateBest(player.hole.concat(board));
+    let beaten = false;
+    let tied = 1;
+    opponents.forEach(function (idx) {
+      if (beaten) return;
+      const cmp = compareScores(playerScore, evaluateBest(game.players[idx].hole.concat(board)));
+      if (cmp < 0) beaten = true;
+      else if (cmp === 0) tied += 1;
+    });
+    score += beaten ? 0 : 1 / tied;
+  }
+  return score / loops;
+}
+
+function cloneGameForRollout(game, heroIndex) {
+  const rules = Object.assign({}, game.rules);
+  const clone = {
+    handNo: game.handNo,
+    dealer: game.dealer,
+    smallBlind: game.smallBlind,
+    bigBlind: game.bigBlind,
+    street: game.street,
+    board: game.board.map(copyCard),
+    deck: [],
+    pot: game.pot,
+    current: game.current,
+    minRaise: game.minRaise,
+    handOver: game.handOver,
+    log: [],
+    handActions: game.handActions.map(cloneHandAction),
+    reads: game.reads.map(function (read) { return Object.assign({}, read); }),
+    players: [],
+    rules,
+    settings: Object.assign({}, game.settings, { rules }),
+    lastAiAnalysis: null,
+    advisorCache: null,
+    message: game.message,
+    logging: false
+  };
+  const known = game.players[heroIndex].hole.concat(game.board).filter(Boolean).map(copyCard);
+  const deck = freshDeckWithout(known);
+  game.players.forEach(function (player, idx) {
+    const copy = {
+      name: player.name,
+      stack: player.stack,
+      hole: [],
+      bet: player.bet,
+      folded: player.folded,
+      allIn: player.allIn,
+      acted: player.acted,
+      totalInvested: player.totalInvested,
+      isBot: player.isBot,
+      style: Object.assign({}, player.style),
+      hand: Object.assign({}, player.hand)
+    };
+    if (idx === heroIndex) {
+      copy.hole = player.hole.map(copyCard);
+    } else if (!player.folded) {
+      const hole = drawWeightedOpponentHole(game, deck, idx).map(copyCard);
+      copy.hole = hole;
+      removeCardsFromDeck(deck, hole);
+    }
+    clone.players.push(copy);
+  });
+  clone.deck = shuffle(deck);
+  return clone;
+}
+
+function copyCard(card) {
+  return { rank: card.rank, suit: card.suit };
+}
+
+function cloneAction(action) {
+  return Object.assign({}, action);
+}
+
+function cloneHandAction(action) {
+  return Object.assign({}, action);
 }
 
 function equityRealization(game, playerIndex, cost, ctx) {
@@ -902,6 +1129,11 @@ function strategyMass(game, playerIndex, action, ctx) {
       const openFit = sigmoid((ctx.profile.preflop - openThreshold) * 13);
       return { mass: clamp(0.06 + (1 - openFit) * 1.25, 0.03, 1.4), note: 'open range ' + percent(openFit) };
     }
+    if (ctx.facingPreflopJam) {
+      const jamContinue = sigmoid((ctx.profile.preflop - 0.64) * 15 + ctx.profile.blocker * 2.4);
+      const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.08) * 12);
+      return { mass: clamp(0.22 + (1 - jamContinue) * 1.45 + pressureFold * 0.55, 0.08, 2.15), note: 'jam defense ' + percent(jamContinue) };
+    }
     const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.05) * 11);
     const multiwayFold = Math.min(0.25, (ctx.fieldCount - 1) * 0.07);
     return { mass: clamp(0.03 + pressureFold + multiwayFold, 0.03, 1.45), note: 'MDF ' + percent(ctx.mdf) };
@@ -910,6 +1142,11 @@ function strategyMass(game, playerIndex, action, ctx) {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
     const drawHelp = ctx.profile.draw * 1.4 + ctx.profile.blocker * 0.35;
     const dominatedPenalty = game.street === 'preflop' && ctx.position.playersBehind >= 4 ? 0.18 : 0;
+    if (ctx.facingPreflopJam) {
+      const jamContinue = sigmoid((ctx.profile.preflop - 0.64) * 15 + ctx.profile.blocker * 2.4);
+      const mass = (0.03 + jamContinue * 1.15 + Math.max(0, ctx.equity - ctx.requiredEquity) * 0.8) * style.call;
+      return { mass: clamp(mass, 0.025, 1.25), note: 'jam call ' + percent(jamContinue) };
+    }
     const limpBrake = ctx.unopenedPreflop && !ctx.position.blindDefense ? 0.28 : 1;
     const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * limpBrake / Math.sqrt(ctx.fieldCount);
     return { mass: clamp(mass, 0.04, 1.65), note: 'pot odds ' + percent(ctx.requiredEquity) };
@@ -1663,7 +1900,8 @@ function renderAdvisor() {
   }
 
   const rows = analysis.rows.slice(0, 5).map(function (row, index) {
-    return '<div class="ev-row ' + (index === 0 ? 'best' : '') + '"><strong>' + escapeHtml(row.action.label) + '</strong><span>EV ' + formatChip(row.ev) + '</span><span>' + Math.round(row.frequency * 100) + '%</span></div>';
+    const rolloutText = row.rolloutSamples > 0 ? ' r' + row.rolloutSamples : '';
+    return '<div class="ev-row ' + (index === 0 ? 'best' : '') + '"><strong>' + escapeHtml(row.action.label) + '</strong><span>EV ' + formatChip(row.ev) + rolloutText + '</span><span>' + Math.round(row.frequency * 100) + '%</span></div>';
   }).join('');
   els.advisorPanel.innerHTML = '<div class="block-heading"><h2>' + title + '</h2><span class="street-badge">' + (STREET_LABELS[state.street] || state.street) + '</span></div>' +
     '<div class="advisor-card"><div class="recommendation"><span>Recommended</span><strong>' + escapeHtml(analysis.best.action.label) + '</strong></div>' +
