@@ -32,11 +32,16 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 1, jamDefenseScale: 1, aggressionScale: 1, callScale: 1 },
-  'no-rollout': { name: 'no-rollout', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1 },
-  'no-jam-defense': { name: 'no-jam-defense', rolloutScale: 1, jamDefenseScale: 0, aggressionScale: 1, callScale: 1 },
-  tight: { name: 'tight', rolloutScale: 1, jamDefenseScale: 1.15, aggressionScale: 0.88, callScale: 0.86 },
-  loose: { name: 'loose', rolloutScale: 1, jamDefenseScale: 0.9, aggressionScale: 1.12, callScale: 1.14 }
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1 },
+  'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
+  'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
+  'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
+  'no-jam-defense': { name: 'no-jam-defense', jamDefenseScale: 0 },
+  tight: { name: 'tight', jamDefenseScale: 1.15, aggressionScale: 0.88, callScale: 0.86, foldScale: 1.08, cbetScale: 0.96, donkScale: 0.82, stabScale: 0.94 },
+  loose: { name: 'loose', jamDefenseScale: 0.9, aggressionScale: 1.12, callScale: 1.14, foldScale: 0.9, cbetScale: 1.04, donkScale: 1.1, stabScale: 1.08 },
+  positional: { name: 'positional', aggressionScale: 1.02, callScale: 0.98, cbetScale: 1.08, donkScale: 0.68, stabScale: 1.16, positionScale: 1.25, temperatureScale: 0.96 },
+  disciplined: { name: 'disciplined', rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.94, callScale: 0.92, foldScale: 1.08, cbetScale: 1.04, donkScale: 0.62, stabScale: 1.06, positionScale: 1.18, temperatureScale: 0.92 },
+  pressure: { name: 'pressure', aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 }
 };
 const DEFAULT_RULE_CONFIG = {
   mode: 'cash',
@@ -1099,7 +1104,8 @@ function cloneHandAction(action) {
 function equityRealization(game, playerIndex, cost, ctx) {
   const outOfPosition = game.street !== 'preflop' && !ctx.position.hasPosition;
   const streetFactor = game.street === 'river' ? 1 : game.street === 'turn' ? 0.94 : game.street === 'flop' ? 0.86 : 0.82;
-  const positionFactor = outOfPosition ? 0.92 : 1.03;
+  const positionSwing = outOfPosition ? -0.08 : 0.03;
+  const positionFactor = 1 + positionSwing * ctx.policy.positionScale;
   const callPressure = cost > 0 ? 0.97 : 1;
   const fieldPenalty = 1 - Math.min(0.24, (ctx.fieldCount - 1) * 0.055);
   return clamp(streetFactor * positionFactor * callPressure * fieldPenalty, 0.54, 1.06);
@@ -1145,17 +1151,17 @@ function strategyMass(game, playerIndex, action, ctx) {
     if (ctx.unopenedPreflop) {
       const openThreshold = 0.44 + ctx.position.playersBehind * 0.035 - ctx.position.late * 0.08 - ctx.position.blindDefense * 0.03;
       const openFit = sigmoid((ctx.profile.preflop - openThreshold) * 13);
-      return { mass: clamp(0.06 + (1 - openFit) * 1.25, 0.03, 1.4), note: 'open range ' + percent(openFit) };
+      return { mass: clamp((0.06 + (1 - openFit) * 1.25) * ctx.policy.foldScale, 0.03, 1.4), note: 'open range ' + percent(openFit) };
     }
     if (ctx.facingPreflopJam && ctx.policy.jamDefenseScale > 0) {
       const jamContinue = sigmoid((ctx.profile.preflop - 0.58) * 13 + ctx.profile.blocker * 1.8 + (ctx.equity - ctx.requiredEquity) * 6);
       const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.04) * 10);
       const jamScale = ctx.policy.jamDefenseScale;
-      return { mass: clamp(0.14 + (1 - jamContinue) * 1.18 * jamScale + pressureFold * 0.38 * jamScale, 0.06, 1.85), note: 'jam defense ' + percent(jamContinue) };
+      return { mass: clamp((0.14 + (1 - jamContinue) * 1.18 * jamScale + pressureFold * 0.38 * jamScale) * ctx.policy.foldScale, 0.06, 1.85), note: 'jam defense ' + percent(jamContinue) };
     }
     const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.05) * 11);
     const multiwayFold = Math.min(0.25, (ctx.fieldCount - 1) * 0.07);
-    return { mass: clamp(0.03 + pressureFold + multiwayFold, 0.03, 1.45), note: 'MDF ' + percent(ctx.mdf) };
+    return { mass: clamp((0.03 + pressureFold + multiwayFold) * ctx.policy.foldScale, 0.03, 1.45), note: 'MDF ' + percent(ctx.mdf) };
   }
   if (action.type === 'call') {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
@@ -1210,7 +1216,7 @@ function averageOpponentCallCost(game, playerIndex, target) {
 function applyFrequencies(game, rows, ctx) {
   if (rows.length === 0) return;
   const maxEv = Math.max.apply(null, rows.map(function (row) { return row.ev; }));
-  const temperature = Math.max(1.25, game.pot * 0.075 + ctx.fieldCount * 0.2);
+  const temperature = Math.max(1.25, game.pot * 0.075 + ctx.fieldCount * 0.2) * ctx.policy.temperatureScale;
   let total = 0;
   rows.forEach(function (row) {
     const prior = Math.log(Math.max(0.015, row.strategyMass));
@@ -1248,6 +1254,11 @@ function targetAggressionFrequency(game, playerIndex, ctx) {
   }
   if (game.street !== 'preflop' && !facingBet && ctx.initiative.missedCbetStab) {
     target += game.street === 'flop' ? 0.08 : 0.04;
+  }
+  if (game.street !== 'preflop' && !facingBet) {
+    if (ctx.initiative.hasInitiative) target *= ctx.policy.cbetScale;
+    else if (ctx.initiative.isDonkLead) target *= ctx.policy.donkScale;
+    else if (ctx.initiative.missedCbetStab) target *= ctx.policy.stabScale;
   }
   target *= ctx.policy.aggressionScale;
   return clamp(target, facingBet ? 0.04 : 0.08, facingBet ? 0.42 : 0.82);
