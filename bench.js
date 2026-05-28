@@ -23,7 +23,10 @@ function parseArgs(argv) {
     league: '',
     baseline: 'current',
     challengers: '',
+    sweep: '',
     mirrorMatchups: 'true',
+    persistentReads: 'true',
+    progress: 'false',
     rotateLineup: 'true',
     json: false,
   };
@@ -44,10 +47,13 @@ function parseArgs(argv) {
   args.samples = Number(args.samples);
   args.seed = Number(args.seed);
   args.seedList = parseSeedList(args.seeds, args.seed);
+  if (!args.challengers && args.sweep) args.challengers = Object.keys(sweepPolicies(args.sweep)).join(',');
   args.stackBb = Number(args.stackBb);
   args.ante = Number(args.ante);
   args.levelHands = Number(args.levelHands);
   args.mirrorMatchups = String(args.mirrorMatchups).toLowerCase() !== 'false';
+  args.persistentReads = String(args.persistentReads).toLowerCase() !== 'false';
+  args.progress = String(args.progress).toLowerCase() === 'true';
   args.rotateLineup = String(args.rotateLineup).toLowerCase() !== 'false';
   return args;
 }
@@ -75,7 +81,7 @@ function loadApi(seed) {
   const context = { console, performance, Math: seededMath };
   vm.createContext(context);
   const source = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
-  vm.runInContext(source + `\nthis.__api = {\n  createGame, startHand, FrequencyPolicy, chooseMixedAction, applyAction, legalActions,\n  evaluateTeacherRows, DEFAULT_TEACHER_ROWS\n};`, context);
+  vm.runInContext(source + `\nthis.__api = {\n  createGame, startHand, FrequencyPolicy, chooseMixedAction, applyAction, legalActions,\n  evaluateTeacherRows, DEFAULT_TEACHER_ROWS, POLICY_PRESETS\n};`, context);
   return context.__api;
 }
 
@@ -89,7 +95,7 @@ function makeRules(args) {
   };
 }
 
-function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, rotateLineup) {
+function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, rotateLineup, persistentReadsEnabled) {
   const totals = Array.from({ length: players }, function () { return 0; });
   const vpip = Array.from({ length: players }, function () { return 0; });
   const pfr = Array.from({ length: players }, function () { return 0; });
@@ -102,12 +108,14 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
   let cappedHands = 0;
   let bigBlind = 2;
   let startingStack = 200;
+  let persistentReads = Array.from({ length: players }, makeBenchRead);
   const started = performance.now();
 
   for (let hand = 0; hand < hands; hand += 1) {
     const game = api.createGame(players, { playerCount: players, depth: 'fast', rules }, { logging: false, heroIsBot: true });
     const handLineup = rotateLineup ? rotateLineupForHand(lineup, hand, players) : lineup;
     assignLineup(game, handLineup, villain);
+    if (persistentReadsEnabled) game.reads = persistentReads.map(cloneBenchRead);
     game.dealer = (hand - 1 + players) % players;
     game.handNo = hand;
     api.startHand(game);
@@ -128,6 +136,8 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
       guard += 1;
     }
     if (guard >= 900) cappedHands += 1;
+
+    if (persistentReadsEnabled) persistentReads = game.reads.map(cloneBenchRead);
 
     game.players.forEach(function (player, idx) {
       const delta = player.stack - startingStack;
@@ -192,6 +202,14 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
       };
     }),
   };
+}
+
+function makeBenchRead() {
+  return { aggression: 0, voluntary: 0, lastAggressiveStreet: null };
+}
+
+function cloneBenchRead(read) {
+  return Object.assign(makeBenchRead(), read || {});
 }
 
 function uniqueItems(items) {
@@ -358,15 +376,23 @@ function printText(results, teacher) {
   console.log(`teacher: spots=${teacher.spots} top1=${formatPct(teacher.top1)} avgKL=${teacher.avgKl.toFixed(3)}`);
 }
 
-function runSeed(args, seed) {
+function runSeed(args, seed, seedIndex, totalSeeds) {
   const teacherApi = loadApi(seed);
+  installSweepPolicies(teacherApi, args.sweep);
   const rules = makeRules(args);
   const specs = lineupSpecs(args);
   const results = [];
+  let task = 0;
+  const totalTasks = specs.length * args.players.length;
   specs.forEach(function (spec) {
     args.players.forEach(function (players) {
-      const api = loadApi(deriveSeed(seed, spec.name, players));
-      const result = runSelfplay(api, players, args.hands, args.samples, rules, args.villain, spec.lineup, args.rotateLineup);
+      task += 1;
+      if (args.progress) {
+        console.error(`[bench] seed ${seed} (${seedIndex + 1}/${totalSeeds}) task ${task}/${totalTasks}: ${spec.name} players=${players}`);
+      }
+      const api = loadApi(deriveSeed(seed, spec.seedKey || spec.name, players));
+      installSweepPolicies(api, args.sweep);
+      const result = runSelfplay(api, players, args.hands, args.samples, rules, args.villain, spec.lineup, args.rotateLineup, args.persistentReads);
       result.seed = seed;
       result.matchup = spec.name;
       results.push(result);
@@ -374,6 +400,23 @@ function runSeed(args, seed) {
   });
   const teacher = runTeacher(teacherApi, args.samples);
   return { seed, rules, results, teacher };
+}
+
+function installSweepPolicies(api, sweepName) {
+  if (!api.POLICY_PRESETS) return;
+  Object.assign(api.POLICY_PRESETS, sweepPolicies(sweepName));
+}
+
+function sweepPolicies(name) {
+  if (name !== 'hu') return {};
+  return {
+    'hu-pressure-soft': { name: 'hu-pressure-soft', headsUp: { aggressionScale: 1.08, callScale: 0.98, foldScale: 0.98, cbetScale: 1.08, donkScale: 0.65, stabScale: 1.16, positionScale: 1.1, temperatureScale: 1 } },
+    'hu-pressure-hot': { name: 'hu-pressure-hot', headsUp: { aggressionScale: 1.18, callScale: 0.94, foldScale: 0.98, cbetScale: 1.16, donkScale: 0.7, stabScale: 1.28, positionScale: 1.12, temperatureScale: 1.05 } },
+    'hu-tight-pressure': { name: 'hu-tight-pressure', headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 } },
+    'hu-low-donk-sweep': { name: 'hu-low-donk-sweep', headsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
+    'hu-wide-call': { name: 'hu-wide-call', headsUp: { aggressionScale: 1.05, callScale: 1.04, foldScale: 0.94, cbetScale: 1.06, donkScale: 0.65, stabScale: 1.12, positionScale: 1.08, temperatureScale: 1.05 } },
+    'hu-cool-pressure': { name: 'hu-cool-pressure', headsUp: { aggressionScale: 1.12, callScale: 0.96, foldScale: 1, cbetScale: 1.1, donkScale: 0.62, stabScale: 1.18, positionScale: 1.12, temperatureScale: 0.88 } }
+  };
 }
 
 function deriveSeed(seed, matchup, players) {
@@ -389,20 +432,25 @@ function lineupSpecs(args) {
     const baseline = args.baseline || 'current';
     const specs = [];
     challengerNames.filter(function (name) { return name !== baseline; }).forEach(function (name) {
-      specs.push({ name: baseline + '_vs_' + name, lineup: baseline + ',' + name });
-      if (args.mirrorMatchups) specs.push({ name: name + '_vs_' + baseline, lineup: name + ',' + baseline });
+      const seedKey = pairSeedKey(baseline, name);
+      specs.push({ name: baseline + '_vs_' + name, lineup: baseline + ',' + name, seedKey });
+      if (args.mirrorMatchups) specs.push({ name: name + '_vs_' + baseline, lineup: name + ',' + baseline, seedKey });
     });
     return specs;
   }
   const leagueNames = csvList(args.league);
-  if (leagueNames.length <= 1) return [{ name: 'lineup', lineup: args.lineup }];
+  if (leagueNames.length <= 1) return [{ name: 'lineup', lineup: args.lineup, seedKey: 'lineup:' + args.lineup }];
   const specs = [];
   for (let i = 0; i < leagueNames.length; i += 1) {
     for (let j = i + 1; j < leagueNames.length; j += 1) {
-      specs.push({ name: leagueNames[i] + '_vs_' + leagueNames[j], lineup: leagueNames[i] + ',' + leagueNames[j] });
+      specs.push({ name: leagueNames[i] + '_vs_' + leagueNames[j], lineup: leagueNames[i] + ',' + leagueNames[j], seedKey: pairSeedKey(leagueNames[i], leagueNames[j]) });
     }
   }
   return specs;
+}
+
+function pairSeedKey(a, b) {
+  return 'pair:' + [a, b].sort().join('|');
 }
 
 function csvList(value) {
@@ -560,12 +608,12 @@ function summarizeLeague(groups) {
 
 function main() {
   const args = parseArgs(process.argv);
-  const seedRuns = args.seedList.map(function (seed) { return runSeed(args, seed); });
+  const seedRuns = args.seedList.map(function (seed, idx) { return runSeed(args, seed, idx, args.seedList.length); });
   const rules = makeRules(args);
   const aggregate = aggregateRuns(seedRuns);
   const teacherAggregate = aggregateTeachers(seedRuns);
   const league = summarizeLeague(aggregate);
-  const payload = { seeds: args.seedList, rules, villain: args.villain, lineup: args.lineup, league: args.league, baseline: args.baseline, challengers: args.challengers, mirrorMatchups: args.mirrorMatchups, rotateLineup: args.rotateLineup, runs: seedRuns, aggregate, leagueTable: league, teacher: teacherAggregate };
+  const payload = { seeds: args.seedList, rules, villain: args.villain, lineup: args.lineup, league: args.league, baseline: args.baseline, challengers: args.challengers, sweep: args.sweep, mirrorMatchups: args.mirrorMatchups, persistentReads: args.persistentReads, progress: args.progress, rotateLineup: args.rotateLineup, runs: seedRuns, aggregate, leagueTable: league, teacher: teacherAggregate };
   if (args.json) console.log(JSON.stringify(payload, null, 2));
   else if (seedRuns.length === 1 && !args.league && !args.challengers) printText(seedRuns[0].results, seedRuns[0].teacher);
   else printAggregate(aggregate, teacherAggregate);

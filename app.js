@@ -32,13 +32,21 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1 },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
   'no-jam-defense': { name: 'no-jam-defense', jamDefenseScale: 0 },
   'hu-low-donk': { name: 'hu-low-donk', headsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
+  'hu-wide-call': { name: 'hu-wide-call', headsUp: { aggressionScale: 1.05, callScale: 1.04, foldScale: 0.94, cbetScale: 1.06, donkScale: 0.65, stabScale: 1.12, positionScale: 1.08, temperatureScale: 1.05 } },
+  'hu-tight-pressure': { name: 'hu-tight-pressure', headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 } },
   adaptive: { name: 'adaptive', headsUp: { aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 } },
+  'read-off': { name: 'read-off', readScale: 0 },
+  'hu-read-off': { name: 'hu-read-off', headsUp: { readScale: 0 } },
+  'read-light': { name: 'read-light', readScale: 0.65 },
+  'read-heavy': { name: 'read-heavy', readScale: 1.35 },
+  'read-pressure': { name: 'read-pressure', readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 },
+  'short-read-pressure': { name: 'short-read-pressure', headsUp: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }, sixMax: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
   'table-adaptive': {
     name: 'table-adaptive',
     headsUp: { aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 },
@@ -257,6 +265,15 @@ function makeRead() {
   return { aggression: 0, voluntary: 0, lastAggressiveStreet: null };
 }
 
+function decayRead(read) {
+  const source = read || makeRead();
+  return {
+    aggression: (source.aggression || 0) * 0.72,
+    voluntary: (source.voluntary || 0) * 0.72,
+    lastAggressiveStreet: null
+  };
+}
+
 function startHand(game) {
   if (shouldResetStacksForNewHand(game)) {
     resetAllStacks(game);
@@ -275,7 +292,7 @@ function startHand(game) {
   game.handOver = false;
   game.log = [];
   game.handActions = [];
-  game.reads = game.players.map(makeRead);
+  game.reads = game.players.map(function (_, idx) { return decayRead(game.reads[idx]); });
   game.lastAiAnalysis = null;
   game.advisorCache = null;
   game.message = 'Blinds posted';
@@ -843,7 +860,7 @@ const FrequencyPolicy = {
       requiredEquity: toCall > 0 ? toCall / Math.max(1, game.pot + toCall) : 0,
       mdf: toCall > 0 ? game.pot / Math.max(1, game.pot + toCall) : 1,
       fieldCount: Math.max(1, activePlayers(game).length - 1),
-      rangePressure: maxOpponentPressure(game, playerIndex),
+      rangePressure: maxOpponentPressure(game, playerIndex) * policy.readScale,
       unopenedPreflop: game.street === 'preflop' && lastAggressorOnStreet(game, 'preflop') == null && currentBet(game) <= bigBlindAmount(game),
       facingPreflopJam: game.street === 'preflop' && toCall > bigBlindAmount(game) * 10 && currentBet(game) >= startingStackAmount(game) * 0.45,
       targetAggression: 0
