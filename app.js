@@ -110,12 +110,15 @@ let actionFlashSerial = 0;
 
 function init() {
   [
-    'statusLine', 'newHandBtn', 'resetBtn', 'potValue', 'boardCards', 'pokerTable', 'seatsGrid', 'actionControls',
+    'statusLine', 'playTab', 'guideTab', 'playView', 'guideView', 'sidePanel', 'newHandBtn', 'resetBtn',
+    'potValue', 'boardCards', 'pokerTable', 'seatsGrid', 'actionControls',
     'playerCountSelect', 'ruleModeSelect', 'blindSelect', 'stackBbSelect', 'anteSelect', 'levelHandsSelect',
     'advisorToggle', 'autoPlayToggle', 'aiSpeedSelect', 'depthSelect', 'peekToggle', 'advisorPanel',
     'selfplayBenchBtn', 'teacherBenchBtn', 'teacherInput', 'benchOutput', 'handLog'
   ].forEach(function (id) { els[id] = document.getElementById(id); });
 
+  els.playTab.addEventListener('click', function () { setActiveView('play'); });
+  els.guideTab.addEventListener('click', function () { setActiveView('guide'); });
   els.newHandBtn.addEventListener('click', function () {
     if (state.handOver) {
       startHand(state);
@@ -142,6 +145,19 @@ function init() {
   els.teacherBenchBtn.addEventListener('click', runTeacherFromUi);
   els.teacherInput.value = JSON.stringify(DEFAULT_TEACHER_ROWS, null, 2);
   resetMatch();
+}
+
+function setActiveView(view) {
+  const guide = view === 'guide';
+  els.playView.hidden = guide;
+  els.sidePanel.hidden = guide;
+  els.guideView.hidden = !guide;
+  els.playTab.classList.toggle('active', !guide);
+  els.guideTab.classList.toggle('active', guide);
+  els.playTab.setAttribute('aria-selected', guide ? 'false' : 'true');
+  els.guideTab.setAttribute('aria-selected', guide ? 'true' : 'false');
+  if (guide) clearBotTimer();
+  else maybeBotAct();
 }
 
 function resetMatch() {

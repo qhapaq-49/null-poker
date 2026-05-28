@@ -1,4 +1,4 @@
-# Table Holdem Lab
+# null-poker
 
 GitHub Pagesでそのまま配信できる、テキサスホールデムの静的Webゲームです。UIは2-9人、内部エンジンはデッキ制約上の最大人数まで配列ベースで扱う設計にしています。
 

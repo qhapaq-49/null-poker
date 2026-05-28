@@ -3,22 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Table Holdem Lab</title>
+    <title>null-poker</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="table-stage" aria-label="Texas Holdem table">
-        <header class="top-bar">
-          <div>
-            <h1>Table Holdem Lab</h1>
-            <p id="statusLine">Loading table...</p>
-          </div>
-          <div class="top-actions">
-            <button id="newHandBtn" class="ghost-button" type="button">New Hand</button>
-            <button id="resetBtn" class="ghost-button" type="button">Reset</button>
-          </div>
-        </header>
+      <header class="top-bar app-header">
+        <div class="brand-block">
+          <h1>null-poker</h1>
+          <p id="statusLine">Loading table...</p>
+        </div>
+        <nav class="view-tabs" aria-label="View">
+          <button id="playTab" class="tab-button active" type="button" aria-selected="true">Play</button>
+          <button id="guideTab" class="tab-button" type="button" aria-selected="false">使い方</button>
+        </nav>
+        <div class="top-actions">
+          <button id="newHandBtn" class="ghost-button" type="button">New Hand</button>
+          <button id="resetBtn" class="ghost-button" type="button">Reset</button>
+        </div>
+      </header>
+
+      <section id="playView" class="table-stage" aria-label="Texas Holdem table">
 
         <div id="pokerTable" class="poker-table">
           <section id="seatsGrid" class="seats-grid" aria-label="Players"></section>
@@ -35,7 +40,7 @@
         <section id="actionControls" class="action-controls" aria-label="Actions"></section>
       </section>
 
-      <aside class="side-panel">
+      <aside id="sidePanel" class="side-panel">
         <section class="panel-block options-block">
           <div class="block-heading">
             <h2>Options</h2>
@@ -151,6 +156,51 @@
           <ol id="handLog"></ol>
         </section>
       </aside>
+
+      <section id="guideView" class="guide-view" hidden>
+        <section class="guide-hero">
+          <h2>null-poker の使い方</h2>
+          <p>ブラウザだけで遊べるテキサスホールデムです。自分で打つ、AI同士を眺める、AIの推奨手を見る、簡易ベンチを回す、の4通りを同じ画面から使えます。</p>
+        </section>
+
+        <div class="guide-grid">
+          <section class="guide-section">
+            <h3>遊ぶ</h3>
+            <ul>
+              <li>Playタブで人数、Cash/Tournament、blind、stack、anteを選ぶと新しい卓になります。</li>
+              <li>自分の番では Fold / Check / Call / Bet / Raise を選びます。大きいbetは下のバーでも指定できます。</li>
+              <li>Hand Log には直近のアクションが残ります。AIのアクションは席の上に一瞬表示されます。</li>
+            </ul>
+          </section>
+
+          <section class="guide-section">
+            <h3>AI観戦</h3>
+            <ul>
+              <li>AI観戦をオンにすると、自分の席もAIが操作します。</li>
+              <li>演出速度は Normal / Fast / Slow で見やすさ重視、Instant で高速消化です。</li>
+              <li>AIカード公開をオンにすると、全員の手札を見ながら進行を追えます。</li>
+            </ul>
+          </section>
+
+          <section class="guide-section">
+            <h3>AI推奨</h3>
+            <ul>
+              <li>AI推奨表示をオンにすると、現在局面の推奨手、近似EV、混合頻度、Equity、MDFが出ます。</li>
+              <li>常時見たくないときはAI推奨パネルの Hide で隠せます。</li>
+              <li>思考量は Fast / Balanced / Deep で変えられます。Deepほど重く、結果も揺れにくくなります。</li>
+            </ul>
+          </section>
+
+          <section class="guide-section">
+            <h3>Bench</h3>
+            <ul>
+              <li>Selfplay は現行AIの自己対局を短く回し、bb/100、VPIP、PFR、c-bet頻度などを出します。</li>
+              <li>Teacher は教師JSONに対して、AIの行動分布がどれくらい近いかをtop-1とKLで見ます。</li>
+              <li>本格的な比較はCLIの <code>./bench.js</code> で複数seedを回すのが前提です。</li>
+            </ul>
+          </section>
+        </div>
+      </section>
     </main>
 
     <script src="app.js"></script>
