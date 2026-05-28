@@ -21,6 +21,9 @@ function parseArgs(argv) {
     villain: 'mirror',
     lineup: 'current',
     league: '',
+    baseline: 'current',
+    challengers: '',
+    mirrorMatchups: 'true',
     rotateLineup: 'true',
     json: false,
   };
@@ -44,6 +47,7 @@ function parseArgs(argv) {
   args.stackBb = Number(args.stackBb);
   args.ante = Number(args.ante);
   args.levelHands = Number(args.levelHands);
+  args.mirrorMatchups = String(args.mirrorMatchups).toLowerCase() !== 'false';
   args.rotateLineup = String(args.rotateLineup).toLowerCase() !== 'false';
   return args;
 }
@@ -102,7 +106,7 @@ function runSelfplay(api, players, hands, samples, rules, villain, lineupArg, ro
 
   for (let hand = 0; hand < hands; hand += 1) {
     const game = api.createGame(players, { playerCount: players, depth: 'fast', rules }, { logging: false, heroIsBot: true });
-    const handLineup = rotateLineup ? rotateLineupForHand(lineup, hand) : lineup;
+    const handLineup = rotateLineup ? rotateLineupForHand(lineup, hand, players) : lineup;
     assignLineup(game, handLineup, villain);
     game.dealer = (hand - 1 + players) % players;
     game.handNo = hand;
@@ -194,9 +198,10 @@ function uniqueItems(items) {
   return Array.from(new Set(items));
 }
 
-function rotateLineupForHand(lineup, hand) {
+function rotateLineupForHand(lineup, hand, players) {
   if (lineup.length <= 1) return lineup;
-  const offset = hand % lineup.length;
+  const orbit = Math.floor(hand / Math.max(1, players));
+  const offset = orbit % lineup.length;
   return lineup.map(function (_, idx) { return lineup[(idx + offset) % lineup.length]; });
 }
 
@@ -354,24 +359,42 @@ function printText(results, teacher) {
 }
 
 function runSeed(args, seed) {
-  const api = loadApi(seed);
+  const teacherApi = loadApi(seed);
   const rules = makeRules(args);
   const specs = lineupSpecs(args);
   const results = [];
   specs.forEach(function (spec) {
     args.players.forEach(function (players) {
+      const api = loadApi(deriveSeed(seed, spec.name, players));
       const result = runSelfplay(api, players, args.hands, args.samples, rules, args.villain, spec.lineup, args.rotateLineup);
       result.seed = seed;
       result.matchup = spec.name;
       results.push(result);
     });
   });
-  const teacher = runTeacher(api, args.samples);
+  const teacher = runTeacher(teacherApi, args.samples);
   return { seed, rules, results, teacher };
 }
 
+function deriveSeed(seed, matchup, players) {
+  let hash = (seed >>> 0) ^ Math.imul(players >>> 0, 0x9e3779b1);
+  const text = String(matchup || 'lineup');
+  for (let i = 0; i < text.length; i += 1) hash = Math.imul(hash ^ text.charCodeAt(i), 0x85ebca6b) >>> 0;
+  return hash >>> 0;
+}
+
 function lineupSpecs(args) {
-  const leagueNames = String(args.league || '').split(',').map(function (name) { return name.trim(); }).filter(Boolean);
+  const challengerNames = csvList(args.challengers);
+  if (challengerNames.length > 0) {
+    const baseline = args.baseline || 'current';
+    const specs = [];
+    challengerNames.filter(function (name) { return name !== baseline; }).forEach(function (name) {
+      specs.push({ name: baseline + '_vs_' + name, lineup: baseline + ',' + name });
+      if (args.mirrorMatchups) specs.push({ name: name + '_vs_' + baseline, lineup: name + ',' + baseline });
+    });
+    return specs;
+  }
+  const leagueNames = csvList(args.league);
   if (leagueNames.length <= 1) return [{ name: 'lineup', lineup: args.lineup }];
   const specs = [];
   for (let i = 0; i < leagueNames.length; i += 1) {
@@ -380,6 +403,10 @@ function lineupSpecs(args) {
     }
   }
   return specs;
+}
+
+function csvList(value) {
+  return String(value || '').split(',').map(function (name) { return name.trim(); }).filter(Boolean);
 }
 
 function aggregateRuns(seedRuns) {
@@ -538,9 +565,9 @@ function main() {
   const aggregate = aggregateRuns(seedRuns);
   const teacherAggregate = aggregateTeachers(seedRuns);
   const league = summarizeLeague(aggregate);
-  const payload = { seeds: args.seedList, rules, villain: args.villain, lineup: args.lineup, league: args.league, rotateLineup: args.rotateLineup, runs: seedRuns, aggregate, leagueTable: league, teacher: teacherAggregate };
+  const payload = { seeds: args.seedList, rules, villain: args.villain, lineup: args.lineup, league: args.league, baseline: args.baseline, challengers: args.challengers, mirrorMatchups: args.mirrorMatchups, rotateLineup: args.rotateLineup, runs: seedRuns, aggregate, leagueTable: league, teacher: teacherAggregate };
   if (args.json) console.log(JSON.stringify(payload, null, 2));
-  else if (seedRuns.length === 1 && !args.league) printText(seedRuns[0].results, seedRuns[0].teacher);
+  else if (seedRuns.length === 1 && !args.league && !args.challengers) printText(seedRuns[0].results, seedRuns[0].teacher);
   else printAggregate(aggregate, teacherAggregate);
 }
 

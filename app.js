@@ -37,10 +37,24 @@ const POLICY_PRESETS = {
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
   'no-jam-defense': { name: 'no-jam-defense', jamDefenseScale: 0 },
+  'hu-low-donk': { name: 'hu-low-donk', headsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 } },
+  adaptive: { name: 'adaptive', headsUp: { aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 } },
+  'table-adaptive': {
+    name: 'table-adaptive',
+    headsUp: { aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 },
+    sixMax: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 },
+    fullRing: { rolloutScale: 0, jamDefenseScale: 1.25, aggressionScale: 0.78, callScale: 0.76, foldScale: 1.25, cbetScale: 0.85, donkScale: 0.42, stabScale: 0.82, positionScale: 1.06, temperatureScale: 0.8 }
+  },
   tight: { name: 'tight', jamDefenseScale: 1.15, aggressionScale: 0.88, callScale: 0.86, foldScale: 1.08, cbetScale: 0.96, donkScale: 0.82, stabScale: 0.94 },
   loose: { name: 'loose', jamDefenseScale: 0.9, aggressionScale: 1.12, callScale: 1.14, foldScale: 0.9, cbetScale: 1.04, donkScale: 1.1, stabScale: 1.08 },
   positional: { name: 'positional', aggressionScale: 1.02, callScale: 0.98, cbetScale: 1.08, donkScale: 0.68, stabScale: 1.16, positionScale: 1.25, temperatureScale: 0.96 },
   disciplined: { name: 'disciplined', rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.94, callScale: 0.92, foldScale: 1.08, cbetScale: 1.04, donkScale: 0.62, stabScale: 1.06, positionScale: 1.18, temperatureScale: 0.92 },
+  'disciplined-2': { name: 'disciplined-2', rolloutScale: 0, jamDefenseScale: 1.14, aggressionScale: 0.9, callScale: 0.88, foldScale: 1.1, cbetScale: 1.0, donkScale: 0.55, stabScale: 1.02, positionScale: 1.2, temperatureScale: 0.88 },
+  'solid-tight': { name: 'solid-tight', rolloutScale: 0, jamDefenseScale: 1.12, aggressionScale: 0.92, callScale: 0.88, foldScale: 1.1, cbetScale: 1.02, donkScale: 0.6, stabScale: 1.0, positionScale: 1.12, temperatureScale: 0.9 },
+  'value-tight': { name: 'value-tight', rolloutScale: 0, jamDefenseScale: 1.18, aggressionScale: 0.84, callScale: 0.82, foldScale: 1.16, cbetScale: 0.94, donkScale: 0.52, stabScale: 0.9, positionScale: 1.1, temperatureScale: 0.84 },
+  'selective-pressure': { name: 'selective-pressure', rolloutScale: 0, jamDefenseScale: 1.1, aggressionScale: 0.98, callScale: 0.9, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.58, stabScale: 1.12, positionScale: 1.15, temperatureScale: 0.92 },
+  'low-donk': { name: 'low-donk', rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1 },
+  nit: { name: 'nit', rolloutScale: 0, jamDefenseScale: 1.25, aggressionScale: 0.78, callScale: 0.76, foldScale: 1.25, cbetScale: 0.85, donkScale: 0.42, stabScale: 0.82, positionScale: 1.06, temperatureScale: 0.8 },
   pressure: { name: 'pressure', aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 }
 };
 const DEFAULT_RULE_CONFIG = {
@@ -846,7 +860,12 @@ function policyConfigFor(game, playerIndex) {
   const player = game.players[playerIndex] || {};
   const requested = player.policyName || game.settings.policyName || 'current';
   const preset = POLICY_PRESETS[requested] || POLICY_PRESETS.current;
-  return Object.assign({}, POLICY_PRESETS.current, preset);
+  const config = Object.assign({}, POLICY_PRESETS.current, preset);
+  if (game.players.length === 2 && preset.headsUp) Object.assign(config, preset.headsUp);
+  else if (game.players.length >= 8 && preset.fullRing) Object.assign(config, preset.fullRing);
+  else if (preset.sixMax) Object.assign(config, preset.sixMax);
+  config.name = preset.name || requested;
+  return config;
 }
 
 function evaluatePolicyAction(game, playerIndex, action, ctx) {
