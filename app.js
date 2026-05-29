@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, fullRing: { actionReadScale: 0 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -60,6 +60,12 @@ const POLICY_PRESETS = {
   'read-light': { name: 'read-light', readScale: 0.65 },
   'read-heavy': { name: 'read-heavy', readScale: 1.35 },
   'action-read-off': { name: 'action-read-off', actionReadScale: 0, fullRing: { actionReadScale: 0 }, duelHeadsUp: { actionReadScale: 0 } },
+  'combo-continue-off': { name: 'combo-continue-off', comboContinueScale: 0, comboRangeScale: 0, fullRing: { comboContinueScale: 0, comboRangeScale: 0 }, duelHeadsUp: { comboContinueScale: 0, comboRangeScale: 0 } },
+  'combo-continue-soft': { name: 'combo-continue-soft', comboContinueScale: 0.55, comboRangeScale: 0.5 },
+  'combo-continue': { name: 'combo-continue', comboContinueScale: 0.85, comboRangeScale: 0.8 },
+  'combo-continue-heavy': { name: 'combo-continue-heavy', comboContinueScale: 1.15, comboRangeScale: 1 },
+  'combo-table-tuned': { name: 'combo-table-tuned', comboContinueScale: 0.55, comboRangeScale: 0.5, sixMax: { comboContinueScale: 0.55, comboRangeScale: 0.5 }, fullRing: { comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { comboContinueScale: 1.15, comboRangeScale: 1 } },
+  'combo-table-mid': { name: 'combo-table-mid', comboContinueScale: 0.85, comboRangeScale: 0.8, sixMax: { comboContinueScale: 0.85, comboRangeScale: 0.8 }, fullRing: { comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { comboContinueScale: 1.15, comboRangeScale: 1 } },
   'read-pressure': { name: 'read-pressure', readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 },
   'short-read-pressure': { name: 'short-read-pressure', headsUp: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }, sixMax: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
   'table-adaptive': {
@@ -96,7 +102,9 @@ const DEFAULT_TEACHER_ROWS = [
   { id: 'HU BB weak donk check', players: 2, street: 'flop', position: 'BB', hole: '9c8d', board: 'AsKh2c', pot: 9, heroBet: 0, toCall: 0, preflopAggressor: 1, teacher: { check: 0.84, bet: 0.16 } },
   { id: 'HU BTN missed cbet stab', players: 2, street: 'flop', position: 'BTN', hole: 'QhJc', board: '8s6d2c', pot: 9, heroBet: 0, toCall: 0, preflopAggressor: 1, history: [{ street: 'flop', player: 1, type: 'check' }], teacher: { bet: 0.55, check: 0.45 } },
   { id: 'Flop air facing multiway bet', players: 4, street: 'flop', hole: '7c2d', board: 'AsKdQh', pot: 16, heroBet: 0, toCall: 8, teacher: { fold: 0.94, call: 0.06, raise: 0 } },
-  { id: 'River pot bet bluffcatcher', players: 2, street: 'river', hole: 'QhJc', board: 'Qs9s4d2c8h', pot: 40, heroBet: 0, toCall: 30, active: [0, 1], history: [{ street: 'river', player: 1, type: 'bet', amount: 30 }], teacher: { call: 0.46, fold: 0.54, raise: 0 } }
+  { id: 'River pot bet bluffcatcher', players: 2, street: 'river', hole: 'QhJc', board: 'Qs9s4d2c8h', pot: 40, heroBet: 0, toCall: 30, active: [0, 1], history: [{ street: 'river', player: 1, type: 'bet', amount: 30 }], teacher: { call: 0.46, fold: 0.54, raise: 0 } },
+  { id: 'Turn weak pair facing 3bet', players: 2, street: 'turn', position: 'BTN', hole: 'Js8s', board: '2cAs9h8d', pot: 128, heroBet: 40, toCall: 48, active: [0, 1], history: [{ street: 'preflop', player: 1, type: 'raise', amount: 4 }, { street: 'flop', player: 1, type: 'bet', amount: 4 }, { street: 'turn', player: 1, type: 'bet', amount: 16 }, { street: 'turn', player: 0, type: 'raise', amount: 40 }, { street: 'turn', player: 1, type: 'raise', amount: 88 }], teacher: { fold: 0.72, call: 0.26, raise: 0.02 } },
+  { id: '6max HU turn weak pair facing 3bet', players: 6, street: 'turn', position: 'BTN', hole: 'Js8s', board: '2cAs9h8d', pot: 128, heroBet: 40, toCall: 48, active: [0, 1], history: [{ street: 'preflop', player: 1, type: 'raise', amount: 4 }, { street: 'flop', player: 1, type: 'bet', amount: 4 }, { street: 'turn', player: 1, type: 'bet', amount: 16 }, { street: 'turn', player: 0, type: 'raise', amount: 40 }, { street: 'turn', player: 1, type: 'raise', amount: 88 }], teacher: { fold: 0.72, call: 0.26, raise: 0.02 } }
 ];
 
 const AI_SPEED_DELAYS = { instant: 0, fast: 180, normal: 720, slow: 1250 };
@@ -960,8 +968,11 @@ const FrequencyPolicy = {
       rangePressure: maxOpponentPressure(game, playerIndex) * policy.readScale,
       unopenedPreflop: game.street === 'preflop' && lastAggressorOnStreet(game, 'preflop') == null && currentBet(game) <= bigBlindAmount(game),
       facingPreflopJam: game.street === 'preflop' && toCall > bigBlindAmount(game) * 10 && currentBet(game) >= startingStackAmount(game) * 0.45,
-      targetAggression: 0
+      facingStreetReraise: isFacingStreetReraise(game, playerIndex, toCall),
+      targetAggression: 0,
+      continuationQuality: 1
     };
+    ctx.continuationQuality = continuationQuality(game, playerIndex, ctx);
     ctx.targetAggression = targetAggressionFrequency(game, playerIndex, ctx);
     const rows = actions.map(function (action) { return evaluatePolicyAction(game, playerIndex, action, ctx); });
     applyFrequencies(game, rows, ctx);
@@ -1312,7 +1323,10 @@ function strategyMass(game, playerIndex, action, ctx) {
     }
     const pressureFold = sigmoid((ctx.requiredEquity - ctx.equity + 0.05) * 11);
     const multiwayFold = Math.min(0.25, (ctx.fieldCount - 1) * 0.07);
-    return { mass: clamp((0.03 + pressureFold + multiwayFold) * ctx.policy.foldScale, 0.03, 1.45), note: 'MDF ' + percent(ctx.mdf) };
+    const comboScale = policyScalar(ctx.policy, 'comboContinueScale', 0);
+    const reraisedFold = ctx.facingStreetReraise ? (1 - ctx.continuationQuality) * 0.72 * comboScale : 0;
+    const note = ctx.facingStreetReraise ? 'MDF ' + percent(ctx.mdf) + ' / continue ' + percent(ctx.continuationQuality) : 'MDF ' + percent(ctx.mdf);
+    return { mass: clamp((0.03 + pressureFold + multiwayFold + reraisedFold) * ctx.policy.foldScale, 0.03, 1.85), note };
   }
   if (action.type === 'call') {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
@@ -1324,8 +1338,11 @@ function strategyMass(game, playerIndex, action, ctx) {
       return { mass: clamp(mass, 0.025, 1.25), note: 'jam call ' + percent(jamContinue) };
     }
     const limpBrake = ctx.unopenedPreflop && !ctx.position.blindDefense ? 0.28 : 1;
-    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * ctx.policy.callScale * limpBrake / Math.sqrt(ctx.fieldCount);
-    return { mass: clamp(mass, 0.04, 1.65), note: 'pot odds ' + percent(ctx.requiredEquity) };
+    const comboScale = policyScalar(ctx.policy, 'comboContinueScale', 0);
+    const comboBrake = ctx.facingStreetReraise ? clamp(1 - (1 - ctx.continuationQuality) * 0.78 * comboScale, 0.18, 1.05) : 1;
+    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * ctx.policy.callScale * limpBrake * comboBrake / Math.sqrt(ctx.fieldCount);
+    const note = ctx.facingStreetReraise ? 'pot odds ' + percent(ctx.requiredEquity) + ' / continue ' + percent(ctx.continuationQuality) : 'pot odds ' + percent(ctx.requiredEquity);
+    return { mass: clamp(mass, 0.025, 1.65), note };
   }
   if (action.type === 'check') {
     const showdownValue = clamp(1 - Math.abs(ctx.equity - 0.52) * 1.35, 0, 1);
@@ -1351,10 +1368,12 @@ function strategyMass(game, playerIndex, action, ctx) {
   const frequencyBoost = 0.45 + ctx.targetAggression * 1.45 * ctx.policy.aggressionScale;
   const polarRaise = game.street === 'preflop' ? ctx.profile.preflop > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.32 && ctx.profile.blocker > 0.15);
   const raiseVsBetPenalty = action.type === 'raise' && ctx.toCall > 0 && !ctx.unopenedPreflop && !polarRaise ? (game.street === 'river' ? 0.1 : 0.35) : 1;
-  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty;
-  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty;
-  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty : 0;
-  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty : 0;
+  const comboScale = policyScalar(ctx.policy, 'comboContinueScale', 0);
+  const continuePressurePenalty = action.type === 'raise' && ctx.facingStreetReraise ? clamp(1 - (1 - ctx.continuationQuality) * 0.68 * comboScale, 0.18, 1) : 1;
+  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty;
+  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty;
+  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty : 0;
+  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty : 0;
   return { mass: clamp(0.035 + valueMass + semiBluff + lowEquityBluff + denyEquity, 0.025, 2.35), note: 'target ' + percent(ctx.targetAggression) + ' / bluff ' + percent(bluffRatio * multiwayDiscount) };
 }
 
@@ -1439,6 +1458,18 @@ function hasPlayerActedOnStreet(game, playerIndex, street) {
   return game.handActions.some(function (action) {
     return action.street === street && action.player === playerIndex;
   });
+}
+
+function hasPlayerAggressedOnStreet(game, playerIndex, street) {
+  return game.handActions.some(function (action) {
+    return action.street === street && action.player === playerIndex && action.aggressive;
+  });
+}
+
+function isFacingStreetReraise(game, playerIndex, toCall) {
+  if (game.street === 'preflop' || game.street === 'showdown' || toCall <= 0) return false;
+  const aggressor = lastAggressorOnStreet(game, game.street);
+  return aggressor != null && aggressor !== playerIndex && hasPlayerAggressedOnStreet(game, playerIndex, game.street);
 }
 
 function positionFeatures(game, playerIndex) {
@@ -1604,7 +1635,10 @@ function rangeWeight(game, hole, playerIndex, policy) {
   const pressure = clamp(rangePressure(game, playerIndex) + currentHandRangePressure(game, playerIndex) * policyScalar(policy, 'actionReadScale', 0), 0, 0.9);
   if (pressure <= 0.03) return 1;
   const preflop = preflopStrength(hole);
-  const made = game.board.length >= 3 ? madeOrDrawStrength(hole, game.board) : preflop;
+  const rawMade = game.board.length >= 3 ? madeOrDrawStrength(hole, game.board) : preflop;
+  const comboRangeScale = policyScalar(policy, 'comboRangeScale', 0);
+  const madeQuality = game.board.length >= 3 ? madeDetail(hole, game.board).quality + drawPotential(hole.concat(game.board)) : preflop;
+  const made = game.board.length >= 3 ? rawMade * (1 - comboRangeScale) + madeQuality * comboRangeScale : preflop;
   const combined = game.board.length >= 3 ? preflop * 0.4 + made * 0.6 : preflop;
   const threshold = 0.18 + pressure * 0.56;
   return clamp(0.07 + (combined - threshold + 0.32) * 1.65, 0.05, 1);
@@ -1613,10 +1647,11 @@ function rangeWeight(game, hole, playerIndex, policy) {
 function handProfile(game, playerIndex) {
   const hole = game.players[playerIndex].hole;
   const preflop = preflopStrength(hole);
+  const detail = game.board.length >= 3 ? madeDetail(hole, game.board) : { quality: preflop, pairQuality: 0, holeMade: 0 };
   const made = game.board.length >= 3 ? madeStrength(hole, game.board) : preflop;
   const draw = game.board.length >= 3 ? drawPotential(hole.concat(game.board)) : preflopDrawBonus(hole);
   const blocker = blockerScore(hole, game.board);
-  return { preflop, made, draw, blocker };
+  return { preflop, made, madeQuality: detail.quality, pairQuality: detail.pairQuality, holeMade: detail.holeMade, draw, blocker };
 }
 
 function preflopStrength(hole) {
@@ -1644,6 +1679,80 @@ function preflopDrawBonus(hole) {
   const suited = hole[0].suit === hole[1].suit ? 0.035 : 0;
   const gap = Math.abs(hole[0].rank - hole[1].rank);
   return suited + (gap <= 2 ? 0.04 : 0);
+}
+
+function continuationQuality(game, playerIndex, ctx) {
+  if (game.street === 'preflop' || game.street === 'showdown') return 1;
+  const madeQuality = Number.isFinite(ctx.profile.madeQuality) ? ctx.profile.madeQuality : ctx.profile.made;
+  const equityFit = sigmoid((ctx.equity - ctx.requiredEquity) * 10);
+  const madeFit = sigmoid((madeQuality - 0.46) * 9);
+  const nutFit = sigmoid((madeQuality - 0.66) * 10);
+  const drawFit = game.street === 'river' ? 0 : clamp(ctx.profile.draw * 4.8, 0, 0.38);
+  const blockerFit = clamp(ctx.profile.blocker * 1.9, 0, 0.28);
+  let quality = equityFit * 0.45 + madeFit * 0.28 + nutFit * 0.14 + drawFit + blockerFit;
+  if (ctx.facingStreetReraise) {
+    const weakMade = madeQuality < 0.45 && ctx.profile.made >= 0.3 && ctx.profile.draw < 0.055;
+    if (weakMade) quality -= 0.22 + Math.min(0.16, ctx.rangePressure * 0.18);
+    if (!ctx.position.hasPosition) quality -= 0.04;
+  }
+  quality -= Math.min(0.12, Math.max(0, ctx.fieldCount - 1) * 0.04);
+  return clamp(quality, 0, 1);
+}
+
+function madeDetail(hole, board) {
+  const cards = hole.concat(board);
+  if (cards.length < 5) return { quality: preflopStrength(hole), pairQuality: 0, holeMade: 0 };
+  const best = evaluateBest(cards);
+  const base = [0.18, 0.34, 0.52, 0.66, 0.78, 0.82, 0.9, 0.96, 1][best.category] || 0.2;
+  if (best.category === 1) return pairMadeDetail(hole, board, best);
+  if (best.category === 2) return twoPairMadeDetail(hole, board, best, base);
+  if (best.category === 3) return tripsMadeDetail(hole, board, best, base);
+  return { quality: base, pairQuality: 0, holeMade: best.category >= 4 ? 1 : 0 };
+}
+
+function pairMadeDetail(hole, board, best) {
+  const pairRank = best.values[0];
+  const holeRanks = hole.map(function (card) { return card.rank; });
+  const boardRanks = Array.from(new Set(board.map(function (card) { return card.rank; })));
+  const topBoardRank = Math.max.apply(null, boardRanks);
+  const boardRanksAbove = boardRanks.filter(function (rank) { return rank > pairRank; }).length;
+  const pairFromHole = holeRanks.includes(pairRank);
+  const kickerFit = rankFit(best.values[1] || Math.max.apply(null, holeRanks));
+  let quality;
+  if (!pairFromHole) quality = 0.2 + rankFit(Math.max.apply(null, holeRanks)) * 0.1;
+  else if (pairRank > topBoardRank) quality = 0.55 + rankFit(pairRank) * 0.1 + kickerFit * 0.04;
+  else if (pairRank === topBoardRank) quality = 0.44 + rankFit(pairRank) * 0.08 + kickerFit * 0.1;
+  else if (boardRanksAbove === 1) quality = 0.36 + rankFit(pairRank) * 0.06 + kickerFit * 0.07;
+  else quality = 0.26 + rankFit(pairRank) * 0.06 + kickerFit * 0.06;
+  return { quality: clamp(quality, 0.18, 0.68), pairQuality: clamp(quality, 0, 1), holeMade: pairFromHole ? 1 : 0 };
+}
+
+function twoPairMadeDetail(hole, board, best, base) {
+  const pairRanks = best.values.slice(0, 2);
+  const holeRanks = hole.map(function (card) { return card.rank; });
+  const boardRanks = board.map(function (card) { return card.rank; });
+  const topBoardRank = Math.max.apply(null, boardRanks);
+  const holeHits = pairRanks.filter(function (rank) { return holeRanks.includes(rank); }).length;
+  const boardOnly = holeHits === 0;
+  let quality = boardOnly ? 0.43 : base + holeHits * 0.045;
+  if (pairRanks.includes(topBoardRank)) quality += 0.045;
+  quality += rankFit(pairRanks[0]) * 0.035;
+  return { quality: clamp(quality, 0.42, 0.72), pairQuality: clamp(quality, 0, 1), holeMade: boardOnly ? 0 : 1 };
+}
+
+function tripsMadeDetail(hole, board, best, base) {
+  const tripRank = best.values[0];
+  const holeTrips = hole.filter(function (card) { return card.rank === tripRank; }).length;
+  const boardTrips = board.filter(function (card) { return card.rank === tripRank; }).length;
+  let quality = base;
+  if (holeTrips === 0 && boardTrips >= 3) quality = 0.53 + rankFit(best.values[1] || 2) * 0.12;
+  else if (holeTrips === 1 && boardTrips === 2) quality = 0.67 + rankFit(tripRank) * 0.06;
+  else if (holeTrips === 2) quality = 0.72 + rankFit(tripRank) * 0.05;
+  return { quality: clamp(quality, 0.5, 0.82), pairQuality: 0, holeMade: holeTrips > 0 ? 1 : 0 };
+}
+
+function rankFit(rank) {
+  return clamp(((Number(rank) || 2) - 2) / 12, 0, 1);
 }
 
 function madeStrength(hole, board) {
