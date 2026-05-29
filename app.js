@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -66,6 +66,14 @@ const POLICY_PRESETS = {
   'combo-continue-heavy': { name: 'combo-continue-heavy', comboContinueScale: 1.15, comboRangeScale: 1 },
   'combo-table-tuned': { name: 'combo-table-tuned', comboContinueScale: 0.55, comboRangeScale: 0.5, sixMax: { comboContinueScale: 0.55, comboRangeScale: 0.5 }, fullRing: { comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { comboContinueScale: 1.15, comboRangeScale: 1 } },
   'combo-table-mid': { name: 'combo-table-mid', comboContinueScale: 0.85, comboRangeScale: 0.8, sixMax: { comboContinueScale: 0.85, comboRangeScale: 0.8 }, fullRing: { comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { comboContinueScale: 1.15, comboRangeScale: 1 } },
+  'hand-quality-only': { name: 'hand-quality-only', handQualityScale: 1, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 1 },
+  'hand-quality-soft': { name: 'hand-quality-soft', handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65 },
+  'hand-quality-table-soft': { name: 'hand-quality-table-soft', handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65, fullRing: { handQualityScale: 0, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0 } },
+  'hand-quality-six-nonhu-soft': { name: 'hand-quality-six-nonhu-soft', headsUp: {}, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65 } },
+  'range-quality-soft': { name: 'range-quality-soft', handQualityScale: 0.65, lineFoldReadScale: 0.65, lineCallReadScale: 0.65, potControlScale: 0.65 },
+  'range-quality': { name: 'range-quality', handQualityScale: 1, lineFoldReadScale: 1, lineCallReadScale: 1, potControlScale: 1 },
+  'range-quality-heavy': { name: 'range-quality-heavy', handQualityScale: 1.35, lineFoldReadScale: 1.25, lineCallReadScale: 1.25, potControlScale: 1.25 },
+  'range-quality-table': { name: 'range-quality-table', handQualityScale: 1, lineFoldReadScale: 1, lineCallReadScale: 1, potControlScale: 1, duelHeadsUp: { handQualityScale: 1.35, lineFoldReadScale: 1.25, lineCallReadScale: 1.25, potControlScale: 1.25 } },
   'read-pressure': { name: 'read-pressure', readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 },
   'short-read-pressure': { name: 'short-read-pressure', headsUp: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }, sixMax: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
   'table-adaptive': {
@@ -1276,10 +1284,17 @@ function equityRealization(game, playerIndex, cost, ctx) {
 function largeBetRiskPenalty(game, playerIndex, action, ctx, cost, pot) {
   const ratio = cost / Math.max(1, pot);
   const isMax = action.target >= maxTargetFor(game, playerIndex);
-  const polarized = game.street === 'preflop' ? ctx.equity > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.28 && ctx.profile.blocker > 0.15);
+  const handQualityScale = policyScalar(ctx.policy, 'handQualityScale', 0);
+  const madeQuality = Number.isFinite(ctx.profile.madeQuality) ? ctx.profile.madeQuality : ctx.profile.made;
+  const madeForPolar = handQualityScale > 0 ? madeQuality : ctx.profile.made;
+  const polarized = game.street === 'preflop' ? ctx.equity > 0.72 : madeForPolar >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.28 && ctx.profile.blocker > 0.15);
   let penalty = 0;
   if (ratio > 1.15) penalty += cost * Math.min(0.34, (ratio - 1.15) * 0.08);
   if (ctx.toCall > 0 && !ctx.unopenedPreflop && action.type === 'raise' && !polarized) penalty += cost * (game.street === 'river' ? 0.28 : 0.12);
+  if (game.street !== 'preflop' && handQualityScale > 0 && (action.type === 'bet' || action.type === 'raise')) {
+    const marginalShowdown = ctx.profile.made >= 0.3 && madeQuality < 0.48 && ctx.profile.draw < 0.055;
+    if (marginalShowdown && ratio > 0.28) penalty += cost * clamp((ratio - 0.28) * 0.18 * handQualityScale + ctx.rangePressure * 0.035 * handQualityScale, 0, 0.26);
+  }
   if (isMax && !polarized && pot < startingStackAmount(game) * 0.7) penalty += cost * 0.24;
   if (game.street === 'preflop' && isMax && pot < 18) penalty += cost * (ctx.equity < 0.82 ? 0.55 : 0.2);
   if (ctx.fieldCount >= 3 && ctx.equity < 0.68) penalty += cost * 0.08;
@@ -1295,7 +1310,7 @@ function estimateFoldProbabilityAgainst(game, playerIndex, opponentIndex, action
   const sizePressure = opponentCallCost / Math.max(1, game.pot + opponentCallCost);
   const streetBase = { preflop: 0.1, flop: 0.2, turn: 0.24, river: 0.29, showdown: 0 }[game.street];
   const opponentCommitment = opponent.bet / Math.max(1, opponent.stack + opponent.bet);
-  const pressure = rangePressure(game, opponentIndex);
+  const pressure = clamp(rangePressure(game, opponentIndex) + currentHandRangePressure(game, opponentIndex) * policyScalar(ctx.policy, 'lineFoldReadScale', 0), 0, 0.9);
   const spr = Math.min(player.stack, opponent.stack) / Math.max(1, game.pot);
   const jamBonus = action.target >= maxTargetFor(game, playerIndex) ? (spr < 2.2 ? 0.07 : 0.015) : 0;
   const multiwayTightening = Math.min(0.12, (ctx.fieldCount - 1) * 0.035);
@@ -1347,8 +1362,12 @@ function strategyMass(game, playerIndex, action, ctx) {
   if (action.type === 'check') {
     const showdownValue = clamp(1 - Math.abs(ctx.equity - 0.52) * 1.35, 0, 1);
     const trap = ctx.equity > 0.78 ? 0.18 : 0;
+    const madeQuality = Number.isFinite(ctx.profile.madeQuality) ? ctx.profile.madeQuality : ctx.profile.made;
+    const potControlScale = policyScalar(ctx.policy, 'potControlScale', 0);
+    const marginalMade = game.street !== 'preflop' && ctx.profile.made >= 0.3 && madeQuality < 0.52 && ctx.profile.draw < 0.055;
+    const potControl = marginalMade ? (0.34 + ctx.boardTexture * 0.18 + (ctx.position.hasPosition ? 0.02 : 0.12) + ctx.rangePressure * 0.12) * potControlScale : 0;
     const frequencyBrake = 1.18 - ctx.targetAggression * 0.72;
-    return { mass: clamp((0.22 + showdownValue * 0.72 + trap + (ctx.fieldCount - 1) * 0.08) * frequencyBrake, 0.08, 1.5), note: 'target bet ' + percent(ctx.targetAggression) };
+    return { mass: clamp((0.22 + showdownValue * 0.72 + trap + potControl + (ctx.fieldCount - 1) * 0.08) * frequencyBrake, 0.08, 1.85), note: 'target bet ' + percent(ctx.targetAggression) };
   }
 
   const target = action.target;
@@ -1360,20 +1379,31 @@ function strategyMass(game, playerIndex, action, ctx) {
   if (game.street === 'preflop') {
     valueThreshold = (ctx.unopenedPreflop ? 0.42 : 0.5) + ctx.position.playersBehind * 0.038 + sizeRatio * 0.1 - ctx.position.late * 0.1 - ctx.position.blindDefense * 0.06;
   } else {
-    valueThreshold = 0.53 + Math.min(0.18, (ctx.fieldCount - 1) * 0.045) + sizeRatio * 0.16 - ctx.position.late * 0.08;
+    const handQualityScale = policyScalar(ctx.policy, 'handQualityScale', 0);
+    const madeQuality = Number.isFinite(ctx.profile.madeQuality) ? ctx.profile.madeQuality : ctx.profile.made;
+    const marginalMadeTax = Math.max(0, 0.52 - madeQuality) * 0.28 * handQualityScale;
+    valueThreshold = 0.53 + Math.min(0.18, (ctx.fieldCount - 1) * 0.045) + sizeRatio * 0.16 - ctx.position.late * 0.08 + marginalMadeTax;
   }
   const isJam = target >= maxTargetFor(game, playerIndex);
   let jamPenalty = isJam ? (ctx.equity > 0.78 || (game.street === 'river' && ctx.profile.blocker > 0.16) ? 0.72 : 0.18) : 1;
   if (game.street === 'preflop' && isJam && game.pot < 18) jamPenalty *= ctx.equity > 0.86 ? 0.55 : 0.06;
   const frequencyBoost = 0.45 + ctx.targetAggression * 1.45 * ctx.policy.aggressionScale;
-  const polarRaise = game.street === 'preflop' ? ctx.profile.preflop > 0.72 : ctx.profile.made >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.32 && ctx.profile.blocker > 0.15);
+  const handQualityScale = policyScalar(ctx.policy, 'handQualityScale', 0);
+  const madeQuality = Number.isFinite(ctx.profile.madeQuality) ? ctx.profile.madeQuality : ctx.profile.made;
+  const madeForPolar = handQualityScale > 0 ? madeQuality : ctx.profile.made;
+  const polarRaise = game.street === 'preflop' ? ctx.profile.preflop > 0.72 : madeForPolar >= 0.66 || (game.street !== 'river' && ctx.profile.draw > 0.06) || (game.street === 'river' && ctx.equity < 0.32 && ctx.profile.blocker > 0.15);
   const raiseVsBetPenalty = action.type === 'raise' && ctx.toCall > 0 && !ctx.unopenedPreflop && !polarRaise ? (game.street === 'river' ? 0.1 : 0.35) : 1;
   const comboScale = policyScalar(ctx.policy, 'comboContinueScale', 0);
   const continuePressurePenalty = action.type === 'raise' && ctx.facingStreetReraise ? clamp(1 - (1 - ctx.continuationQuality) * 0.68 * comboScale, 0.18, 1) : 1;
-  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty;
-  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty;
-  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty : 0;
-  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty : 0;
+  const marginalShowdown = game.street !== 'preflop' && ctx.profile.made >= 0.3 && madeQuality < 0.52 && ctx.profile.draw < 0.055;
+  const potControlScale = policyScalar(ctx.policy, 'potControlScale', 0);
+  const potControlBrake = marginalShowdown ? clamp(1 - (0.22 + sizeRatio * 0.75 + ctx.rangePressure * 0.12) * potControlScale, 0.22, 1) : 1;
+  const thinValueBrake = marginalShowdown ? clamp(1 - (0.18 + sizeRatio * 1.05 + ctx.rangePressure * 0.16) * handQualityScale, 0.32, 1) * potControlBrake : 1;
+  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * thinValueBrake;
+  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake;
+  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake : 0;
+  const denyBrake = marginalShowdown ? clamp(thinValueBrake + 0.08, 0.28, 1) : 1;
+  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * denyBrake : 0;
   return { mass: clamp(0.035 + valueMass + semiBluff + lowEquityBluff + denyEquity, 0.025, 2.35), note: 'target ' + percent(ctx.targetAggression) + ' / bluff ' + percent(bluffRatio * multiwayDiscount) };
 }
 
@@ -1631,8 +1661,32 @@ function policyScalar(policy, key, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function lineCallRangePressure(game, playerIndex) {
+  const bb = Math.max(1, bigBlindAmount(game));
+  let pressure = 0;
+  game.handActions.forEach(function (action, index) {
+    if (action.player !== playerIndex || action.type !== 'call' || action.street === 'preflop') return;
+    const priorAggression = lastAggressionBefore(game, action.street, index);
+    if (!priorAggression || priorAggression.player === playerIndex) return;
+    const amount = Math.max(0, Number(action.amount) || 0);
+    const sizeBoost = clamp(Math.log2(1 + amount / bb) * 0.03, 0, 0.12);
+    const streetBoost = action.street === 'turn' || action.street === 'river' ? 0.035 : 0;
+    const carriesForward = action.street !== game.street ? 0.025 : 0.01;
+    pressure += 0.095 + sizeBoost + streetBoost + carriesForward;
+  });
+  return clamp(pressure, 0, 0.46);
+}
+
+function lastAggressionBefore(game, street, beforeIndex) {
+  for (let i = beforeIndex - 1; i >= 0; i -= 1) {
+    const action = game.handActions[i];
+    if (action.street === street && action.aggressive) return action;
+  }
+  return null;
+}
+
 function rangeWeight(game, hole, playerIndex, policy) {
-  const pressure = clamp(rangePressure(game, playerIndex) + currentHandRangePressure(game, playerIndex) * policyScalar(policy, 'actionReadScale', 0), 0, 0.9);
+  const pressure = clamp(rangePressure(game, playerIndex) + currentHandRangePressure(game, playerIndex) * policyScalar(policy, 'actionReadScale', 0) + lineCallRangePressure(game, playerIndex) * policyScalar(policy, 'lineCallReadScale', 0), 0, 0.9);
   if (pressure <= 0.03) return 1;
   const preflop = preflopStrength(hole);
   const rawMade = game.board.length >= 3 ? madeOrDrawStrength(hole, game.board) : preflop;
