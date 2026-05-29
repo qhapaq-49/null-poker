@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "project": "null-poker",
+  "unit": "bb/100",
+  "caveats": [
+    "Numbers are short mirrored selfplay or spot diagnostics, not absolute poker strength.",
+    "deltaBb100 is candidate policy minus baseline policy under the listed bench conditions.",
+    "Older entries are backfilled from development-session bench output; future entries should be appended from bench.js --json runs."
+  ],
+  "entries": [
+    {
+      "date": "2026-05-29",
+      "commit": "911f7b7",
+      "title": "Combo-quality continuation pressure",
+      "status": "adopted",
+      "hypothesis": "Facing a street reraise, weak pair / weak combo continues should fold more often while strong combo continues remain aggressive.",
+      "effects": [
+        {
+          "benchmark": "current vs combo-continue-off",
+          "players": 2,
+          "deltaBb100": 100.3,
+          "source": "development bench summary"
+        },
+        {
+          "benchmark": "current vs combo-continue-off",
+          "players": 6,
+          "deltaBb100": 28.3,
+          "source": "development bench summary"
+        },
+        {
+          "benchmark": "current vs combo-continue-off",
+          "players": 9,
+          "deltaBb100": 4.3,
+          "source": "development bench summary"
+        }
+      ],
+      "spotChecks": [
+        {
+          "spot": "6max HU turn J8s weak pair facing 3bet",
+          "before": {
+            "foldPct": 0.3
+          },
+          "after": {
+            "foldPct": 63
+          },
+          "note": "Moved obvious bad 3bet-call behavior toward fold-heavy frequency."
+        }
+      ],
+      "conclusion": "Large targeted win in short selfplay and fixed the observed weak-pair 3bet-call leak."
+    },
+    {
+      "date": "2026-05-29",
+      "commit": "8c28ce2",
+      "title": "Hand-quality pot-control tuning",
+      "status": "adopted",
+      "hypothesis": "Medium made hands should not convert raw equity into large turn/river bets as often, especially in 6max non-HU pots.",
+      "effects": [
+        {
+          "benchmark": "hand-quality-six-nonhu-soft vs previous current",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 660,
+          "seeds": [
+            451,
+            452,
+            453
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "hand-quality-six-nonhu-soft vs previous current",
+          "players": 6,
+          "deltaBb100": 2.6,
+          "hands": 660,
+          "seeds": [
+            451,
+            452,
+            453
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "hand-quality-six-nonhu-soft vs previous current",
+          "players": 9,
+          "deltaBb100": 6.1,
+          "hands": 660,
+          "seeds": [
+            451,
+            452,
+            453
+          ],
+          "source": "bench.js challengers; not adopted for full-ring because current fullRing override keeps 9max mostly separate"
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "range-quality-table",
+          "reason": "The broad opponent call-range read was theoretically plausible but unstable in short selfplay; 411-413 seeds were negative across 2/6/9."
+        },
+        {
+          "name": "hand-quality-table-soft",
+          "reason": "Improved 6max in one run but hurt pure HU, so the adopted change was narrowed to 6max non-HU."
+        }
+      ],
+      "spotChecks": [
+        {
+          "spot": "6max OOP second pair turn",
+          "after": {
+            "checkPct": 98.4,
+            "betPct": 1.6
+          },
+          "note": "Confirmed pot-control behavior for the target leak."
+        },
+        {
+          "spot": "6max strong nut-flush-draw turn",
+          "after": {
+            "checkPct": 56.2,
+            "betPct": 43.8
+          },
+          "note": "Flagged as next leak: strong draws are now a bit too passive in some multiway spots."
+        }
+      ],
+      "conclusion": "Small adopted EV gain, mainly a leak patch. Next likely improvement is to restore pressure with high-quality draws and blockers."
+    },
+    {
+      "date": "2026-05-29",
+      "commit": "05de058",
+      "title": "Heads-up draw-quality semi-bluff tuning",
+      "status": "adopted",
+      "hypothesis": "Strong nut and combo draws should be treated as natural semi-bluffs in HU pots, but broad multiway draw aggression over-bluffs.",
+      "effects": [
+        {
+          "benchmark": "draw-quality-hu-soft vs previous current",
+          "players": 2,
+          "deltaBb100": 38.8,
+          "hands": 720,
+          "seeds": [
+            511,
+            512,
+            513
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "draw-quality-hu-soft vs previous current",
+          "players": 6,
+          "deltaBb100": 20.4,
+          "hands": 720,
+          "seeds": [
+            511,
+            512,
+            513
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "draw-quality-hu-soft vs previous current",
+          "players": 9,
+          "deltaBb100": 4.2,
+          "hands": 720,
+          "seeds": [
+            511,
+            512,
+            513
+          ],
+          "source": "bench.js challengers"
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "draw-quality-soft",
+          "reason": "Won HU in one run but lost 6max/9max when applied to all postflop contexts."
+        },
+        {
+          "name": "draw-quality",
+          "reason": "Stronger global draw aggression increased c-bet pressure but lost selfplay EV across player counts."
+        },
+        {
+          "name": "draw-quality-six",
+          "reason": "After fixing sixMax override leakage, sixMax-only draw boost was roughly neutral to slightly negative."
+        }
+      ],
+      "spotChecks": [
+        {
+          "spot": "6max strong NFD turn",
+          "before": {
+            "betPct": 47.1
+          },
+          "candidate": {
+            "betPct": 65.3
+          },
+          "note": "Soft draw-quality restored NFD semi-bluff pressure without changing weak-pair pot-control."
+        },
+        {
+          "spot": "6max OOP second pair turn",
+          "before": {
+            "betPct": 2.2
+          },
+          "candidate": {
+            "betPct": 2.8
+          },
+          "note": "Targeted draw boost did not materially reopen the second-pair leak."
+        }
+      ],
+      "conclusion": "Adopt HU-only draw-quality pressure; reject global draw aggression."
+    }
+  ]
+}

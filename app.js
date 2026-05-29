@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -74,6 +74,11 @@ const POLICY_PRESETS = {
   'range-quality': { name: 'range-quality', handQualityScale: 1, lineFoldReadScale: 1, lineCallReadScale: 1, potControlScale: 1 },
   'range-quality-heavy': { name: 'range-quality-heavy', handQualityScale: 1.35, lineFoldReadScale: 1.25, lineCallReadScale: 1.25, potControlScale: 1.25 },
   'range-quality-table': { name: 'range-quality-table', handQualityScale: 1, lineFoldReadScale: 1, lineCallReadScale: 1, potControlScale: 1, duelHeadsUp: { handQualityScale: 1.35, lineFoldReadScale: 1.25, lineCallReadScale: 1.25, potControlScale: 1.25 } },
+  'draw-quality-soft': { name: 'draw-quality-soft', drawQualityScale: 0.65 },
+  'draw-quality': { name: 'draw-quality', drawQualityScale: 1 },
+  'draw-quality-heavy': { name: 'draw-quality-heavy', drawQualityScale: 1.35 },
+  'draw-quality-six': { name: 'draw-quality-six', headsUp: {}, sixMax: { drawQualityScale: 1 } },
+  'draw-quality-hu-soft': { name: 'draw-quality-hu-soft', headsUp: { drawQualityScale: 0.65 }, duelHeadsUp: { drawQualityScale: 0.65 } },
   'read-pressure': { name: 'read-pressure', readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 },
   'short-read-pressure': { name: 'short-read-pressure', headsUp: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 }, sixMax: { readScale: 1.25, aggressionScale: 1.04, callScale: 0.97, foldScale: 1.02, cbetScale: 1.06, donkScale: 0.75, stabScale: 1.12 } },
   'table-adaptive': {
@@ -1014,7 +1019,7 @@ function policyBaseOverrides(preset) {
 function applyPolicyFieldOverride(config, preset, game, activeCount) {
   if (activeCount === 2 && preset.headsUp) Object.assign(config, preset.headsUp);
   else if (game.players.length >= 8 && preset.fullRing) Object.assign(config, preset.fullRing);
-  else if (preset.sixMax) Object.assign(config, preset.sixMax);
+  else if (activeCount !== 2 && game.players.length < 8 && preset.sixMax) Object.assign(config, preset.sixMax);
   if (game.players.length === 2 && preset.duelHeadsUp) Object.assign(config, preset.duelHeadsUp);
 }
 
@@ -1400,7 +1405,10 @@ function strategyMass(game, playerIndex, action, ctx) {
   const potControlBrake = marginalShowdown ? clamp(1 - (0.22 + sizeRatio * 0.75 + ctx.rangePressure * 0.12) * potControlScale, 0.22, 1) : 1;
   const thinValueBrake = marginalShowdown ? clamp(1 - (0.18 + sizeRatio * 1.05 + ctx.rangePressure * 0.16) * handQualityScale, 0.32, 1) * potControlBrake : 1;
   const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * thinValueBrake;
-  const semiBluff = (ctx.profile.draw * 1.35 + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake;
+  const drawQualityScale = policyScalar(ctx.policy, 'drawQualityScale', 0);
+  const drawForBluff = ctx.profile.draw + Math.max(0, (ctx.profile.drawQuality || ctx.profile.draw) - ctx.profile.draw) * drawQualityScale;
+  const naturalDrawBonus = ((ctx.profile.nutDraw || 0) * 0.08 + (ctx.profile.comboDraw || 0) * 0.12) * drawQualityScale;
+  const semiBluff = (drawForBluff * 1.35 + naturalDrawBonus + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake;
   const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake : 0;
   const denyBrake = marginalShowdown ? clamp(thinValueBrake + 0.08, 0.28, 1) : 1;
   const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * denyBrake : 0;
@@ -1445,7 +1453,9 @@ function targetAggressionFrequency(game, playerIndex, ctx) {
     if (ctx.initiative.hasInitiative && ctx.position.hasPosition && ctx.fieldCount === 1 && ctx.boardTexture < 0.45) target += 0.08;
   }
   if (game.street !== 'preflop' && facingBet && ctx.initiative.hasInitiative && ctx.profile.draw > 0.05) target += 0.04;
-  target += ctx.profile.draw * 0.55 + ctx.profile.blocker * 0.35;
+  const drawQualityScale = policyScalar(ctx.policy, 'drawQualityScale', 0);
+  const drawPressure = ctx.profile.draw * 0.55 + Math.max(0, (ctx.profile.drawQuality || ctx.profile.draw) - ctx.profile.draw) * 0.78 * drawQualityScale + ((ctx.profile.nutDraw || 0) * 0.04 + (ctx.profile.comboDraw || 0) * 0.05) * drawQualityScale;
+  target += drawPressure + ctx.profile.blocker * 0.35;
   if (ctx.equity > 0.68) target += 0.16;
   if (ctx.equity < 0.28 && game.street !== 'river') target -= 0.14;
   if (ctx.equity < 0.22 && game.street === 'river') target += ctx.profile.blocker * 0.55;
@@ -1703,9 +1713,10 @@ function handProfile(game, playerIndex) {
   const preflop = preflopStrength(hole);
   const detail = game.board.length >= 3 ? madeDetail(hole, game.board) : { quality: preflop, pairQuality: 0, holeMade: 0 };
   const made = game.board.length >= 3 ? madeStrength(hole, game.board) : preflop;
-  const draw = game.board.length >= 3 ? drawPotential(hole.concat(game.board)) : preflopDrawBonus(hole);
+  const drawInfo = game.board.length >= 3 ? drawDetail(hole, game.board) : { potential: preflopDrawBonus(hole), quality: preflopDrawBonus(hole), nut: 0, combo: 0 };
+  const draw = drawInfo.potential;
   const blocker = blockerScore(hole, game.board);
-  return { preflop, made, madeQuality: detail.quality, pairQuality: detail.pairQuality, holeMade: detail.holeMade, draw, blocker };
+  return { preflop, made, madeQuality: detail.quality, pairQuality: detail.pairQuality, holeMade: detail.holeMade, draw, drawQuality: drawInfo.quality, nutDraw: drawInfo.nut, comboDraw: drawInfo.combo, blocker };
 }
 
 function preflopStrength(hole) {
@@ -1741,7 +1752,9 @@ function continuationQuality(game, playerIndex, ctx) {
   const equityFit = sigmoid((ctx.equity - ctx.requiredEquity) * 10);
   const madeFit = sigmoid((madeQuality - 0.46) * 9);
   const nutFit = sigmoid((madeQuality - 0.66) * 10);
-  const drawFit = game.street === 'river' ? 0 : clamp(ctx.profile.draw * 4.8, 0, 0.38);
+  const drawQualityScale = policyScalar(ctx.policy, 'drawQualityScale', 0);
+  const drawValue = ctx.profile.draw + Math.max(0, (ctx.profile.drawQuality || ctx.profile.draw) - ctx.profile.draw) * drawQualityScale;
+  const drawFit = game.street === 'river' ? 0 : clamp(drawValue * 4.8 + (ctx.profile.nutDraw || 0) * 0.08 * drawQualityScale + (ctx.profile.comboDraw || 0) * 0.08 * drawQualityScale, 0, 0.48);
   const blockerFit = clamp(ctx.profile.blocker * 1.9, 0, 0.28);
   let quality = equityFit * 0.45 + madeFit * 0.28 + nutFit * 0.14 + drawFit + blockerFit;
   if (ctx.facingStreetReraise) {
@@ -1818,6 +1831,45 @@ function madeStrength(hole, board) {
 
 function madeOrDrawStrength(hole, board) {
   return clamp(madeStrength(hole, board) + drawPotential(hole.concat(board)), 0.04, 1);
+}
+
+function drawDetail(hole, board) {
+  const cards = hole.concat(board);
+  const potential = drawPotential(cards);
+  if (board.length < 3 || potential <= 0) return { potential, quality: potential, nut: 0, combo: 0 };
+
+  const suitCounts = new Map();
+  cards.forEach(function (card) { suitCounts.set(card.suit, (suitCounts.get(card.suit) || 0) + 1); });
+  let flushQuality = 0;
+  let nut = 0;
+  suitCounts.forEach(function (count, suit) {
+    if (count !== 4) return;
+    const suitedHole = hole.filter(function (card) { return card.suit === suit; });
+    if (suitedHole.length === 0) return;
+    const high = Math.max.apply(null, suitedHole.map(function (card) { return card.rank; }));
+    const highFit = rankFit(high);
+    const nutFit = high === 14 ? 1 : high >= 13 ? 0.55 : high >= 11 ? 0.25 : 0;
+    nut = Math.max(nut, nutFit);
+    flushQuality = Math.max(flushQuality, 0.04 + highFit * 0.06 + nutFit * 0.055);
+  });
+
+  const rankItems = cards.map(function (card) { return card.rank === 14 ? [14, 1] : [card.rank]; }).flat();
+  const ranks = Array.from(new Set(rankItems)).sort(function (a, b) { return a - b; });
+  const holeRankSet = new Set(hole.map(function (card) { return card.rank === 14 ? [14, 1] : [card.rank]; }).flat());
+  let straightQuality = 0;
+  for (let low = 1; low <= 10; low += 1) {
+    const window = [low, low + 1, low + 2, low + 3, low + 4];
+    const hits = window.filter(function (rank) { return ranks.includes(rank); });
+    if (hits.length !== 4) continue;
+    const heroHits = hits.filter(function (rank) { return holeRankSet.has(rank); }).length;
+    if (heroHits <= 0) continue;
+    const highFit = rankFit(Math.min(14, low + 4));
+    straightQuality = Math.max(straightQuality, 0.025 + heroHits * 0.018 + highFit * 0.025);
+  }
+
+  const combo = flushQuality > 0 && straightQuality > 0 ? 1 : 0;
+  const quality = clamp(potential + flushQuality + straightQuality + combo * 0.08, potential, 0.28);
+  return { potential, quality, nut, combo };
 }
 
 function drawPotential(cards) {
