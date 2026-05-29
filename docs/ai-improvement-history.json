@@ -124,7 +124,7 @@
     },
     {
       "date": "2026-05-29",
-      "commit": "05de058",
+      "commit": "b0399ba",
       "title": "Heads-up draw-quality semi-bluff tuning",
       "status": "adopted",
       "hypothesis": "Strong nut and combo draws should be treated as natural semi-bluffs in HU pots, but broad multiway draw aggression over-bluffs.",
