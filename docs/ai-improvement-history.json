@@ -258,6 +258,89 @@
         }
       ],
       "conclusion": "Adopt weak multiway c-bet brake globally; keep the RFI/HU table-size candidates rejected."
+    },
+    {
+      "date": "2026-05-29",
+      "commit": "fd9cecd",
+      "title": "6max river bluffcatch discipline",
+      "status": "adopted",
+      "hypothesis": "River bluffcatchers should not defend only from pot odds/MDF; on multi-seat 6max tables, large river bets should tighten hero calls when blocker quality is poor and the opponent line is strong, while pure HU and full-ring remain unchanged until they test cleanly.",
+      "effects": [
+        {
+          "benchmark": "current vs river-defense-off",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 280,
+          "seeds": [
+            761,
+            762
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "current vs river-defense-off",
+          "players": 6,
+          "deltaBb100": 24.1,
+          "hands": 280,
+          "seeds": [
+            761,
+            762
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "current vs river-defense-off",
+          "players": 9,
+          "deltaBb100": 0,
+          "hands": 280,
+          "seeds": [
+            761,
+            762
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "current vs jammer smoke",
+          "players": 2,
+          "deltaBb100": 219.6,
+          "hands": 120,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke",
+          "players": 6,
+          "deltaBb100": 157.7,
+          "hands": 120,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke",
+          "players": 9,
+          "deltaBb100": 66.6,
+          "hands": 120,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "river-defense and river-defense-heavy",
+          "reason": "Stronger settings were too unstable and hurt at least one table size in short selfplay."
+        },
+        {
+          "name": "global/table-wide river-defense-soft",
+          "reason": "Soft river defense helped 6max but was noisy or negative in pure HU/full-ring ablations, so adoption was narrowed to 6max including 6max heads-up decisions."
+        }
+      ],
+      "conclusion": "Adopt blocker- and line-pressure-aware river bluffcatch discipline only for 6max table contexts, including active heads-up spots inside a 6max table."
     }
   ]
 }
