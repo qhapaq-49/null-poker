@@ -206,7 +206,7 @@
     },
     {
       "date": "2026-05-29",
-      "commit": "849c91a",
+      "commit": "6f08f2e",
       "title": "Global multiway c-bet discipline",
       "status": "adopted",
       "hypothesis": "GTO multiway theory favors tighter continuation betting with weak air; preserve value and strong draw aggression while braking weak multiway c-bets.",
