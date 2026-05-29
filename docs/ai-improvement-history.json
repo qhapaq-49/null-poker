@@ -203,6 +203,61 @@
         }
       ],
       "conclusion": "Adopt HU-only draw-quality pressure; reject global draw aggression."
+    },
+    {
+      "date": "2026-05-29",
+      "commit": "849c91a",
+      "title": "Global multiway c-bet discipline",
+      "status": "adopted",
+      "hypothesis": "GTO multiway theory favors tighter continuation betting with weak air; preserve value and strong draw aggression while braking weak multiway c-bets.",
+      "effects": [
+        {
+          "benchmark": "multiway-cbet-six-heavy vs previous current",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 780,
+          "seeds": [
+            671,
+            672,
+            673
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "multiway-cbet-six-heavy vs previous current",
+          "players": 6,
+          "deltaBb100": 5.6,
+          "hands": 780,
+          "seeds": [
+            671,
+            672,
+            673
+          ],
+          "source": "bench.js challengers"
+        },
+        {
+          "benchmark": "multiway-cbet-heavy vs sixMax-only current",
+          "players": 9,
+          "deltaBb100": 6.2,
+          "hands": 240,
+          "seeds": [
+            711,
+            712
+          ],
+          "source": "bench.js challengers sanity check"
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "rfi-discipline-soft/rfi-discipline/rfi-discipline-heavy",
+          "reason": "Raise-first-in discipline matched preflop theory but produced an incoherent 2p negative / 6p positive / 9p negative pattern, so it was treated as noise or benchmark-context leakage rather than a strategic conclusion; no RFI candidate was adopted."
+        },
+        {
+          "name": "sixMax-only multiway-cbet-heavy",
+          "reason": "Initial 6max-only narrowing was treated as an empirical stopgap, not a coherent theory; external strategy references and a 9max sanity check favored making the brake field-count driven instead of table-label driven."
+        }
+      ],
+      "conclusion": "Adopt weak multiway c-bet brake globally; keep the RFI/HU table-size candidates rejected."
     }
   ]
 }
