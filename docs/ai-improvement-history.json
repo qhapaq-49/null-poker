@@ -433,6 +433,92 @@
         }
       ],
       "conclusion": "Adopt street-reraise discipline only for embedded heads-up spots: 0.75 in 6max, 1.0 in full-ring, and 0.0 in pure heads-up."
+    },
+    {
+      "date": "2026-05-30",
+      "commit": "2dc84d8",
+      "title": "Full-ring multiway defense discipline",
+      "status": "adopted",
+      "hypothesis": "In full-ring multiway flop/turn pots, weak static made hands with little draw quality or nut potential should continue less often against bets. The same pressure did not test cleanly in 6max, so adoption is limited to full-ring contexts.",
+      "effects": [
+        {
+          "benchmark": "multiway-defense-ring vs previous current",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 0,
+          "seeds": [
+            911,
+            912,
+            913
+          ],
+          "source": "policy construction: fullRing-only override has no pure heads-up effect"
+        },
+        {
+          "benchmark": "multiway-defense-ring vs previous current",
+          "players": 6,
+          "deltaBb100": 0,
+          "hands": 0,
+          "seeds": [
+            911,
+            912,
+            913
+          ],
+          "source": "policy construction: sixMax current remains unchanged after rejecting the table split"
+        },
+        {
+          "benchmark": "multiway-defense-ring vs previous current",
+          "players": 9,
+          "deltaBb100": 9.8,
+          "hands": 660,
+          "seeds": [
+            911,
+            912,
+            913
+          ],
+          "source": "bench.js challengers league table"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 2,
+          "deltaBb100": 219.6,
+          "hands": 120,
+          "seeds": [
+            922
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 6,
+          "deltaBb100": 157.7,
+          "hands": 120,
+          "seeds": [
+            922
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 9,
+          "deltaBb100": 66.6,
+          "hands": 120,
+          "seeds": [
+            922
+          ],
+          "source": "bench.js jammer"
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "multiway-defense-table",
+          "reason": "The sixMax/fullRing split won 9max but lost the 6max three-seed check, so sixMax was left unchanged."
+        },
+        {
+          "name": "global multiway-defense soft/normal/heavy",
+          "reason": "The rough sweep showed inconsistent table-size behavior; full-ring-only discipline was the cleanest adopted result."
+        }
+      ],
+      "conclusion": "Adopt multiway defense discipline only for full-ring non-river pots facing a bet with a weak static made hand and little nut potential. Pure heads-up and 6max behavior remain unchanged."
     }
   ]
 }
