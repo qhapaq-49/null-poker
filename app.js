@@ -122,11 +122,11 @@ const POLICY_PRESETS = {
   pressure: { name: 'pressure', aggressionScale: 1.14, callScale: 0.96, foldScale: 0.96, cbetScale: 1.12, donkScale: 0.76, stabScale: 1.22, positionScale: 1.12, temperatureScale: 1.02 }
 };
 const DEFAULT_RULE_CONFIG = {
-  mode: 'cash',
+  mode: 'tournament',
   blind: '1/2',
   startingStackBb: 100,
   anteFraction: 0,
-  levelHands: 0
+  levelHands: 10
 };
 
 const DEFAULT_TEACHER_ROWS = [
