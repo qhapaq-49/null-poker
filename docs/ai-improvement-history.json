@@ -341,6 +341,98 @@
         }
       ],
       "conclusion": "Adopt blocker- and line-pressure-aware river bluffcatch discipline only for 6max table contexts, including active heads-up spots inside a 6max table."
+    },
+    {
+      "date": "2026-05-30",
+      "commit": "dda5c10",
+      "title": "Table-aware street-reraise discipline",
+      "status": "adopted",
+      "hypothesis": "Weak made hands with little redraw equity should continue less often against turn-or-flop reraises, but pure heads-up should stay unchanged until it wins there. Embedded heads-up spots in 6max/full-ring tables get the brake because ranges are tighter after a multi-seat hand collapses to heads-up.",
+      "effects": [
+        {
+          "benchmark": "reraise-discipline-table-hu vs previous current",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 0,
+          "seeds": [
+            861,
+            862,
+            863
+          ],
+          "source": "policy construction: pure duelHeadsUp override keeps streetReraiseDisciplineScale at 0"
+        },
+        {
+          "benchmark": "reraise-discipline-table-hu vs previous current",
+          "players": 6,
+          "deltaBb100": 2.1,
+          "hands": 540,
+          "seeds": [
+            861,
+            862,
+            863
+          ],
+          "source": "bench.js challengers league table"
+        },
+        {
+          "benchmark": "reraise-discipline-table-hu vs previous current",
+          "players": 9,
+          "deltaBb100": 11.1,
+          "hands": 540,
+          "seeds": [
+            861,
+            862,
+            863
+          ],
+          "source": "bench.js challengers league table"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 2,
+          "deltaBb100": 219.6,
+          "hands": 120,
+          "seeds": [
+            881
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 6,
+          "deltaBb100": 157.7,
+          "hands": 120,
+          "seeds": [
+            881
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 9,
+          "deltaBb100": 66.6,
+          "hands": 120,
+          "seeds": [
+            881
+          ],
+          "source": "bench.js jammer"
+        }
+      ],
+      "spotDiagnostics": [
+        {
+          "spot": "6max HU turn weak pair facing 3bet",
+          "result": "fold frequency moved into the ~0.76-0.78 band in seeded spot probes, close to the loose teacher target of 0.72 and far below the old over-call pattern."
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "global reraise-discipline-soft/normal/heavy",
+          "reason": "The global normal setting helped 6max but was weaker in pure heads-up and not clearly better in full-ring, so the final policy does not touch duelHeadsUp."
+        },
+        {
+          "name": "embedded soft/light variants",
+          "reason": "Softer full-ring settings were acceptable in 9max but lost too much in 6max narrowing, while the table-hu split kept both 6max and 9max positive in the final three-seed check."
+        }
+      ],
+      "conclusion": "Adopt street-reraise discipline only for embedded heads-up spots: 0.75 in 6max, 1.0 in full-ring, and 0.0 in pure heads-up."
     }
   ]
 }
