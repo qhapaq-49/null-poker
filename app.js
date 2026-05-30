@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, multiwayCbetBrakeScale: 1.45, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65, riverActionReadScale: 0.35, riverDefenseScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 }, sixMaxHeadsUp: { riverActionReadScale: 0.35, riverDefenseScale: 0.65 }, fullRingHeadsUp: { riverActionReadScale: 0, riverDefenseScale: 0 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65, riverActionReadScale: 0, riverDefenseScale: 0 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, multiwayCbetBrakeScale: 1.45, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65, riverActionReadScale: 0.35, riverDefenseScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 }, sixMaxHeadsUp: { riverActionReadScale: 0.35, riverDefenseScale: 0.65, streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 1 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65, riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 0 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -79,6 +79,14 @@ const POLICY_PRESETS = {
   'draw-quality-heavy': { name: 'draw-quality-heavy', drawQualityScale: 1.35 },
   'draw-quality-six': { name: 'draw-quality-six', headsUp: {}, sixMax: { drawQualityScale: 1 } },
   'draw-quality-hu-soft': { name: 'draw-quality-hu-soft', headsUp: { drawQualityScale: 0.65 }, duelHeadsUp: { drawQualityScale: 0.65 } },
+  'reraise-discipline-soft': { name: 'reraise-discipline-soft', streetReraiseDisciplineScale: 0.45 },
+  'reraise-discipline': { name: 'reraise-discipline', streetReraiseDisciplineScale: 0.75 },
+  'reraise-discipline-heavy': { name: 'reraise-discipline-heavy', streetReraiseDisciplineScale: 1.1 },
+  'reraise-discipline-embedded-soft': { name: 'reraise-discipline-embedded-soft', sixMaxHeadsUp: { streetReraiseDisciplineScale: 0.55 }, fullRingHeadsUp: { streetReraiseDisciplineScale: 0.55 } },
+  'reraise-discipline-embedded': { name: 'reraise-discipline-embedded', sixMaxHeadsUp: { streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { streetReraiseDisciplineScale: 0.75 } },
+  'reraise-discipline-embedded-heavy': { name: 'reraise-discipline-embedded-heavy', sixMaxHeadsUp: { streetReraiseDisciplineScale: 1 }, fullRingHeadsUp: { streetReraiseDisciplineScale: 1 } },
+  'reraise-discipline-table-hu-light': { name: 'reraise-discipline-table-hu-light', sixMaxHeadsUp: { streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { streetReraiseDisciplineScale: 0.9 } },
+  'reraise-discipline-table-hu': { name: 'reraise-discipline-table-hu', sixMaxHeadsUp: { streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { streetReraiseDisciplineScale: 1 } },
   'multiway-cbet-soft': { name: 'multiway-cbet-soft', multiwayCbetBrakeScale: 0.55 },
   'multiway-cbet': { name: 'multiway-cbet', multiwayCbetBrakeScale: 1 },
   'multiway-cbet-heavy': { name: 'multiway-cbet-heavy', multiwayCbetBrakeScale: 1.45 },
@@ -1365,8 +1373,9 @@ function strategyMass(game, playerIndex, action, ctx) {
     const lineHeat = Math.max(ctx.rangePressure || 0, ctx.linePressure || 0);
     const blockerDeficit = clamp(0.14 - ctx.profile.blocker, 0, 0.14);
     const riverFoldBoost = riverBluffcatcher ? (0.12 + blockerDeficit * 1.2 + Math.max(0, lineHeat - 0.18) * 0.45 + Math.max(0, ctx.requiredEquity - 0.32) * 0.35 + Math.max(0, 0.62 - madeQuality) * 0.32) * riverDefenseScale : 0;
+    const streetReraise = streetReraiseDiscipline(game, ctx, madeQuality);
     const note = ctx.facingStreetReraise ? 'MDF ' + percent(ctx.mdf) + ' / continue ' + percent(ctx.continuationQuality) : 'MDF ' + percent(ctx.mdf);
-    return { mass: clamp((0.03 + pressureFold + multiwayFold + reraisedFold + riverFoldBoost) * ctx.policy.foldScale, 0.03, 1.85), note };
+    return { mass: clamp((0.03 + pressureFold + multiwayFold + reraisedFold + riverFoldBoost + streetReraise.foldBoost) * ctx.policy.foldScale, 0.03, 1.85), note };
   }
   if (action.type === 'call') {
     const potOddsFit = sigmoid((ctx.equity - ctx.requiredEquity) * 12);
@@ -1386,7 +1395,8 @@ function strategyMass(game, playerIndex, action, ctx) {
     const lineHeat = Math.max(ctx.rangePressure || 0, ctx.linePressure || 0);
     const blockerDeficit = clamp(0.14 - ctx.profile.blocker, 0, 0.14);
     const riverCallBrake = riverBluffcatcher ? clamp(1 - (0.12 + blockerDeficit * 1.25 + Math.max(0, lineHeat - 0.18) * 0.48 + Math.max(0, ctx.requiredEquity - 0.32) * 0.32 + Math.max(0, 0.62 - madeQuality) * 0.36) * riverDefenseScale, 0.34, 1) : 1;
-    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * ctx.policy.callScale * limpBrake * comboBrake * riverCallBrake / Math.sqrt(ctx.fieldCount);
+    const streetReraise = streetReraiseDiscipline(game, ctx, madeQuality);
+    const mass = (0.08 + potOddsFit + drawHelp - dominatedPenalty) * style.call * ctx.policy.callScale * limpBrake * comboBrake * riverCallBrake * streetReraise.callBrake / Math.sqrt(ctx.fieldCount);
     const note = ctx.facingStreetReraise ? 'pot odds ' + percent(ctx.requiredEquity) + ' / continue ' + percent(ctx.continuationQuality) : 'pot odds ' + percent(ctx.requiredEquity);
     return { mass: clamp(mass, 0.025, 1.65), note };
   }
@@ -1426,6 +1436,7 @@ function strategyMass(game, playerIndex, action, ctx) {
   const raiseVsBetPenalty = action.type === 'raise' && ctx.toCall > 0 && !ctx.unopenedPreflop && !polarRaise ? (game.street === 'river' ? 0.1 : 0.35) : 1;
   const comboScale = policyScalar(ctx.policy, 'comboContinueScale', 0);
   const continuePressurePenalty = action.type === 'raise' && ctx.facingStreetReraise ? clamp(1 - (1 - ctx.continuationQuality) * 0.68 * comboScale, 0.18, 1) : 1;
+  const streetReraise = streetReraiseDiscipline(game, ctx, madeQuality);
   const marginalShowdown = game.street !== 'preflop' && ctx.profile.made >= 0.3 && madeQuality < 0.52 && ctx.profile.draw < 0.055;
   const potControlScale = policyScalar(ctx.policy, 'potControlScale', 0);
   const potControlBrake = marginalShowdown ? clamp(1 - (0.22 + sizeRatio * 0.75 + ctx.rangePressure * 0.12) * potControlScale, 0.22, 1) : 1;
@@ -1433,15 +1444,38 @@ function strategyMass(game, playerIndex, action, ctx) {
   const multiwayCbetBrakeScale = policyScalar(ctx.policy, 'multiwayCbetBrakeScale', 0);
   const weakMultiwayCbet = game.street !== 'preflop' && ctx.fieldCount >= 2 && ctx.initiative.hasInitiative && ctx.toCall <= 0 && madeQuality < 0.54 && ctx.profile.draw < 0.055 && (ctx.profile.drawQuality || 0) < 0.11;
   const multiwayCbetBrake = weakMultiwayCbet ? clamp(1 - ((ctx.fieldCount - 1) * 0.18 + sizeRatio * 0.42 + ctx.boardTexture * 0.08) * multiwayCbetBrakeScale, 0.38, 1) : 1;
-  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * thinValueBrake * multiwayCbetBrake;
+  const valueMass = sigmoid((ctx.equity - valueThreshold) * 12) * style.risk * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * streetReraise.raiseBrake * thinValueBrake * multiwayCbetBrake;
   const drawQualityScale = policyScalar(ctx.policy, 'drawQualityScale', 0);
   const drawForBluff = ctx.profile.draw + Math.max(0, (ctx.profile.drawQuality || ctx.profile.draw) - ctx.profile.draw) * drawQualityScale;
   const naturalDrawBonus = ((ctx.profile.nutDraw || 0) * 0.08 + (ctx.profile.comboDraw || 0) * 0.12) * drawQualityScale;
-  const semiBluff = (drawForBluff * 1.35 + naturalDrawBonus + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake * multiwayCbetBrake;
-  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * potControlBrake * multiwayCbetBrake : 0;
+  const semiBluff = (drawForBluff * 1.35 + naturalDrawBonus + ctx.profile.blocker * 0.8 + ctx.boardTexture * 0.18) * bluffRatio * multiwayDiscount * style.bluff * jamPenalty * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * streetReraise.raiseBrake * potControlBrake * multiwayCbetBrake;
+  const lowEquityBluff = game.street === 'river' ? sigmoid((0.35 - ctx.equity) * 9) * ctx.profile.blocker * bluffRatio * 1.8 * multiwayDiscount * style.bluff * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * streetReraise.raiseBrake * potControlBrake * multiwayCbetBrake : 0;
   const denyBrake = marginalShowdown ? clamp(thinValueBrake + 0.08, 0.28, 1) : 1;
-  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * denyBrake * multiwayCbetBrake : 0;
+  const denyEquity = game.street !== 'river' && ctx.equity > 0.46 && ctx.equity < 0.63 ? 0.16 * multiwayDiscount * frequencyBoost * raiseVsBetPenalty * continuePressurePenalty * streetReraise.raiseBrake * denyBrake * multiwayCbetBrake : 0;
   return { mass: clamp(0.035 + valueMass + semiBluff + lowEquityBluff + denyEquity, 0.025, 2.35), note: 'target ' + percent(ctx.targetAggression) + ' / bluff ' + percent(bluffRatio * multiwayDiscount) };
+}
+
+function streetReraiseDiscipline(game, ctx, madeQuality) {
+  const scale = policyScalar(ctx.policy, 'streetReraiseDisciplineScale', 0);
+  if (scale <= 0 || !ctx.facingStreetReraise || game.street === 'preflop' || game.street === 'river') return { foldBoost: 0, callBrake: 1, raiseBrake: 1 };
+  const drawQuality = ctx.profile.drawQuality || ctx.profile.draw || 0;
+  const marginalMade = ctx.profile.made >= 0.3 && madeQuality < 0.52 && ctx.profile.draw < 0.055;
+  if (!marginalMade) return { foldBoost: 0, callBrake: 1, raiseBrake: 1 };
+  const redrawDeficit = clamp(0.08 - drawQuality, 0, 0.08);
+  const pressure = clamp(
+    Math.max(0, ctx.requiredEquity - ctx.equity) * 0.85 +
+    Math.max(0, 0.5 - madeQuality) * 0.6 +
+    Math.max(ctx.rangePressure || 0, ctx.linePressure || 0) * 0.32 +
+    redrawDeficit * 1.35 +
+    (ctx.position.hasPosition ? 0 : 0.04),
+    0,
+    0.62
+  );
+  return {
+    foldBoost: (0.12 + pressure * 0.75) * scale,
+    callBrake: clamp(1 - (0.18 + pressure * 0.62) * scale, 0.34, 1),
+    raiseBrake: clamp(1 - (0.32 + pressure * 0.8) * scale, 0.18, 1)
+  };
 }
 
 function averageOpponentCallCost(game, playerIndex, target) {
