@@ -170,9 +170,14 @@ button:disabled {
 .poker-table {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  grid-template-areas:
+    "hero board"
+    "actions actions"
+    "seats seats";
   align-self: start;
-  gap: 6px;
+  align-items: start;
+  gap: 8px;
   min-height: 0;
   padding: 10px;
   border: 1px solid rgba(216, 179, 95, 0.4);
@@ -194,13 +199,21 @@ button:disabled {
   pointer-events: none;
 }
 
+.hero-seat-zone,
 .seats-grid,
-.board-zone {
+.board-zone,
+.action-controls {
   position: relative;
   z-index: 1;
 }
 
+.hero-seat-zone {
+  grid-area: hero;
+  min-width: 0;
+}
+
 .seats-grid {
+  grid-area: seats;
   display: grid;
   grid-template-columns: repeat(3, minmax(170px, 1fr));
   align-content: start;
@@ -403,10 +416,14 @@ button:disabled {
 }
 
 .board-zone {
-  align-self: start;
+  grid-area: board;
+  align-self: stretch;
   display: grid;
-  justify-items: center;
-  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: 10px;
+  min-width: 0;
 }
 
 .pot-stack {
@@ -513,6 +530,7 @@ button:disabled {
 }
 
 .action-controls {
+  grid-area: actions;
   min-height: 118px;
   padding: 10px;
   border: 1px solid var(--line);
@@ -816,20 +834,44 @@ button:disabled {
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 8px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .table-stage {
+    gap: 0;
   }
 
   .top-bar {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
+    gap: 6px;
+    padding: 0;
+  }
+
+  .top-bar h1 {
+    font-size: 1.15rem;
+  }
+
+  .top-bar p {
+    margin-top: 2px;
+    font-size: 0.76rem;
+    line-height: 1.25;
   }
 
   .view-tabs {
     width: 100%;
+    padding: 3px;
   }
 
   .tab-button {
     flex: 1;
+    min-height: 32px;
+  }
+
+  .top-actions .ghost-button {
+    min-height: 34px;
+    padding: 0 10px;
   }
 
   .guide-grid {
@@ -837,23 +879,159 @@ button:disabled {
   }
 
   .poker-table {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "hero"
+      "board"
+      "actions"
+      "seats";
+    gap: 6px;
     min-height: 0;
-    padding: 8px;
-    border-radius: 16px;
+    padding: 6px;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 4px rgba(74, 42, 20, 0.24);
   }
 
   .poker-table::before {
-    inset: 12px;
+    display: none;
   }
 
-  .seats-grid {
-    grid-template-columns: 1fr;
-    min-height: auto;
-    gap: 8px;
+  .hero-seat-zone .seat {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "name cards"
+      "metrics cards"
+      "label label";
+    align-items: center;
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .hero-seat-zone .player-name-row {
+    grid-area: name;
+  }
+
+  .hero-seat-zone .stack-grid {
+    grid-area: metrics;
+  }
+
+  .hero-seat-zone .hole-cards {
+    grid-area: cards;
+    min-height: 0;
+  }
+
+  .hero-seat-zone .hand-label {
+    grid-area: label;
+    justify-self: stretch;
+    min-height: 24px;
+    padding: 4px 7px;
+  }
+
+  .hero-seat-zone .card,
+  .hero-seat-zone .empty-card {
+    width: clamp(46px, 12vw, 56px);
+  }
+
+  .metric,
+  .analysis-metric {
+    padding: 4px 6px;
+  }
+
+  .metric span,
+  .analysis-metric span {
+    font-size: 0.68rem;
+  }
+
+  .metric strong,
+  .analysis-metric strong {
+    font-size: 0.9rem;
+  }
+
+  .board-zone {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    gap: 6px;
+  }
+
+  .pot-stack {
+    min-width: 62px;
+    padding: 4px 6px;
+  }
+
+  .pot-stack strong {
+    font-size: 1.1rem;
+  }
+
+  .board-cards {
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .board-cards .card,
+  .board-cards .empty-card {
+    width: clamp(40px, 13.2vw, 55px);
+    padding: 5px;
+    border-radius: 7px;
+  }
+
+  .action-controls {
+    position: sticky;
+    bottom: 0;
+    min-height: 0;
+    padding: 6px;
+    border-radius: 8px;
+    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.26);
   }
 
   .action-grid {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .action-button {
+    min-height: 48px;
+    padding: 8px;
+    font-size: 0.9rem;
+  }
+
+  .slider-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .slider-row input[type="range"] {
+    height: 38px;
+  }
+
+  .seats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: auto;
+    gap: 6px;
+  }
+
+  .seat {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .seats-grid .card,
+  .seats-grid .empty-card {
+    width: clamp(30px, 8.5vw, 40px);
+    padding: 4px;
+    border-radius: 6px;
+  }
+
+  .seats-grid .hole-cards {
+    min-height: 44px;
+  }
+
+  .seats-grid .hand-label {
+    min-height: 22px;
+    padding: 4px 6px;
+    font-size: 0.72rem;
   }
 
   .side-panel,
@@ -864,10 +1042,6 @@ button:disabled {
   }
 
   .analysis-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .slider-row {
     grid-template-columns: 1fr;
   }
 }

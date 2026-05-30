@@ -155,7 +155,7 @@ let actionFlashSerial = 0;
 function init() {
   [
     'statusLine', 'playTab', 'guideTab', 'playView', 'guideView', 'sidePanel', 'newHandBtn', 'resetBtn',
-    'potValue', 'boardCards', 'pokerTable', 'seatsGrid', 'actionControls',
+    'potValue', 'boardCards', 'pokerTable', 'heroSeat', 'seatsGrid', 'actionControls',
     'playerCountSelect', 'ruleModeSelect', 'blindSelect', 'stackBbSelect', 'anteSelect', 'levelHandsSelect',
     'advisorToggle', 'autoPlayToggle', 'aiSpeedSelect', 'depthSelect', 'peekToggle', 'advisorPanel',
     'selfplayBenchBtn', 'teacherBenchBtn', 'teacherInput', 'benchOutput', 'handLog'
@@ -2341,8 +2341,9 @@ function render() {
   els.potValue.textContent = String(state.pot);
   els.pokerTable.className = 'poker-table players-' + state.players.length;
   els.seatsGrid.className = 'seats-grid players-' + state.players.length;
+  els.heroSeat.innerHTML = renderSeat(HERO);
   els.boardCards.innerHTML = renderBoard();
-  els.seatsGrid.innerHTML = state.players.map(function (_, idx) { return renderSeat(idx); }).join('');
+  els.seatsGrid.innerHTML = state.players.map(function (_, idx) { return idx === HERO ? '' : renderSeat(idx); }).join('');
   renderActions();
   renderAdvisor();
   renderLog();
