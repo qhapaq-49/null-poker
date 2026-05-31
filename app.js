@@ -32,7 +32,7 @@ const ROLLOUT_CONFIG = {
   deepCap: 12
 };
 const POLICY_PRESETS = {
-  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, multiwayCbetBrakeScale: 1.45, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, multiwayDefenseDisciplineScale: 1.05 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65, riverActionReadScale: 0.35, riverDefenseScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 }, sixMaxHeadsUp: { riverActionReadScale: 0.35, riverDefenseScale: 0.65, streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 1, postflopJamDefenseScale: 0.75 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65, riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 0 } },
+  current: { name: 'current', rolloutScale: 0, jamDefenseScale: 1, aggressionScale: 1, callScale: 1, foldScale: 1, cbetScale: 1, donkScale: 1, stabScale: 1, positionScale: 1, temperatureScale: 1, readScale: 1, actionReadScale: 0.75, comboContinueScale: 0.55, comboRangeScale: 0.5, multiwayCbetBrakeScale: 1.45, fullRing: { actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, multiwayDefenseDisciplineScale: 1.05 }, sixMax: { handQualityScale: 0.65, lineFoldReadScale: 0, lineCallReadScale: 0, potControlScale: 0.65, riverActionReadScale: 0.35, riverDefenseScale: 0.65 }, headsUp: { aggressionScale: 1.06, callScale: 0.92, foldScale: 1.08, cbetScale: 1.08, donkScale: 0.55, stabScale: 1.12, positionScale: 1.12, temperatureScale: 0.95, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65 }, sixMaxHeadsUp: { riverActionReadScale: 0.35, riverDefenseScale: 0.65, streetReraiseDisciplineScale: 0.75 }, fullRingHeadsUp: { riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 1, postflopJamDefenseScale: 0.75, polarRangeScale: 1.05 }, duelHeadsUp: { rolloutScale: 0, jamDefenseScale: 1.05, aggressionScale: 1, callScale: 0.96, foldScale: 1.03, cbetScale: 1.04, donkScale: 0.45, stabScale: 1.08, positionScale: 1.1, temperatureScale: 1, actionReadScale: 0, comboContinueScale: 1.15, comboRangeScale: 1, drawQualityScale: 0.65, riverActionReadScale: 0, riverDefenseScale: 0, streetReraiseDisciplineScale: 0 } },
   'rollout-lite': { name: 'rollout-lite', rolloutScale: 0.35 },
   'full-rollout': { name: 'full-rollout', rolloutScale: 1 },
   'no-rollout': { name: 'no-rollout', rolloutScale: 0 },
@@ -104,6 +104,15 @@ const POLICY_PRESETS = {
   'postflop-jam-defense-hu': { name: 'postflop-jam-defense-hu', headsUp: { postflopJamDefenseScale: 0.75 }, duelHeadsUp: { postflopJamDefenseScale: 0.75 } },
   'postflop-jam-defense-embedded': { name: 'postflop-jam-defense-embedded', sixMaxHeadsUp: { postflopJamDefenseScale: 0.55 }, fullRingHeadsUp: { postflopJamDefenseScale: 0.75 } },
   'postflop-jam-defense-hybrid': { name: 'postflop-jam-defense-hybrid', sixMaxHeadsUp: { postflopJamDefenseScale: 0.45 }, fullRingHeadsUp: { postflopJamDefenseScale: 0.75 }, duelHeadsUp: { postflopJamDefenseScale: 0.45 } },
+  'polar-range-soft': { name: 'polar-range-soft', polarRangeScale: 0.45 },
+  'polar-range': { name: 'polar-range', polarRangeScale: 0.75 },
+  'polar-range-heavy': { name: 'polar-range-heavy', polarRangeScale: 1.05 },
+  'polar-range-hu-soft': { name: 'polar-range-hu-soft', headsUp: { polarRangeScale: 0.45 }, duelHeadsUp: { polarRangeScale: 0.45 } },
+  'polar-range-hu': { name: 'polar-range-hu', headsUp: { polarRangeScale: 0.75 }, duelHeadsUp: { polarRangeScale: 0.75 } },
+  'polar-range-embedded': { name: 'polar-range-embedded', sixMaxHeadsUp: { polarRangeScale: 0.55 }, fullRingHeadsUp: { polarRangeScale: 0.75 } },
+  'polar-range-ring-hu-soft': { name: 'polar-range-ring-hu-soft', fullRingHeadsUp: { polarRangeScale: 0.45 } },
+  'polar-range-ring-hu': { name: 'polar-range-ring-hu', fullRingHeadsUp: { polarRangeScale: 0.75 } },
+  'polar-range-ring-hu-heavy': { name: 'polar-range-ring-hu-heavy', fullRingHeadsUp: { polarRangeScale: 1.05 } },
   'river-defense-off': { name: 'river-defense-off', riverActionReadScale: 0, riverDefenseScale: 0 },
   'river-defense-soft': { name: 'river-defense-soft', riverActionReadScale: 0.35, riverDefenseScale: 0.65 },
   'river-defense': { name: 'river-defense', riverActionReadScale: 0.7, riverDefenseScale: 1 },
@@ -1877,7 +1886,49 @@ function rangeWeight(game, hole, playerIndex, policy) {
   const made = game.board.length >= 3 ? rawMade * (1 - comboRangeScale) + madeQuality * comboRangeScale : preflop;
   const combined = game.board.length >= 3 ? preflop * 0.4 + made * 0.6 : preflop;
   const threshold = 0.18 + pressure * 0.56;
-  return clamp(0.07 + (combined - threshold + 0.32) * 1.65, 0.05, 1);
+  const baseWeight = clamp(0.07 + (combined - threshold + 0.32) * 1.65, 0.05, 1);
+  return polarActionRangeWeight(game, hole, playerIndex, policy, baseWeight);
+}
+
+function polarActionRangeWeight(game, hole, playerIndex, policy, baseWeight) {
+  const scale = policyScalar(policy, 'polarRangeScale', 0);
+  if (scale <= 0 || game.street === 'preflop' || game.street === 'showdown' || game.board.length < 3) return baseWeight;
+  const pressure = polarActionPressure(game, playerIndex);
+  if (pressure <= 0) return baseWeight;
+  const detail = madeDetail(hole, game.board);
+  const drawInfo = drawDetail(hole, game.board);
+  const blocker = blockerScore(hole, game.board);
+  const madeQuality = detail.quality + (game.street === 'river' ? 0 : drawInfo.quality * 0.72);
+  const valueThreshold = game.street === 'river' ? 0.58 + pressure * 0.13 : 0.6 + pressure * 0.1;
+  const valueFit = sigmoid((madeQuality - valueThreshold) * 11);
+  const lowShowdown = sigmoid((0.46 - detail.quality) * 8);
+  const riverBluffFit = lowShowdown * clamp(blocker * 2.2 + preflopStrength(hole) * 0.08, 0, 0.55);
+  const drawBluffFit = game.street === 'river' ? 0 : clamp(drawInfo.quality * 3.8 + drawInfo.nut * 0.18 + drawInfo.combo * 0.22 + blocker * 0.45, 0, 0.72);
+  const bluffFit = game.street === 'river' ? riverBluffFit : drawBluffFit;
+  const polarWeight = clamp(0.035 + valueFit * 0.9 + bluffFit * 0.55, 0.03, 1);
+  const blend = clamp(pressure * scale, 0, 0.82);
+  return clamp(baseWeight * (1 - blend) + polarWeight * blend, 0.03, 1);
+}
+
+function polarActionPressure(game, playerIndex) {
+  const action = lastAggressiveActionByPlayerOnStreet(game, playerIndex, game.street);
+  if (!action) return 0;
+  const amount = Math.max(0, Number(action.amount) || 0);
+  if (amount <= 0) return 0;
+  const potBefore = Math.max(1, game.pot - amount);
+  const size = amount / potBefore;
+  const sizeThreshold = game.street === 'river' ? 0.68 : game.street === 'turn' ? 0.92 : 1.18;
+  const allInBoost = game.players[playerIndex] && game.players[playerIndex].allIn ? 0.12 : 0;
+  const streetBoost = game.street === 'river' ? 0.06 : game.street === 'turn' ? 0.025 : 0;
+  return clamp((size - sizeThreshold) * 0.48 + allInBoost + streetBoost, 0, 0.82);
+}
+
+function lastAggressiveActionByPlayerOnStreet(game, playerIndex, street) {
+  for (let i = game.handActions.length - 1; i >= 0; i -= 1) {
+    const action = game.handActions[i];
+    if (action.street === street && action.player === playerIndex && action.aggressive) return action;
+  }
+  return null;
 }
 
 function handProfile(game, playerIndex) {
@@ -2004,14 +2055,27 @@ function pairMadeDetail(hole, board, best) {
   const topBoardRank = Math.max.apply(null, boardRanks);
   const boardRanksAbove = boardRanks.filter(function (rank) { return rank > pairRank; }).length;
   const pairFromHole = holeRanks.includes(pairRank);
-  const kickerFit = rankFit(best.values[1] || Math.max.apply(null, holeRanks));
+  const holePair = holeRanks.length === 2 && holeRanks[0] === holeRanks[1] && holeRanks[0] === pairRank;
+  const kickerInfo = pairKickerInfo(holeRanks, best.values.slice(1), pairRank, holePair);
+  const kickerFit = kickerInfo.fit;
+  const weakKickerTax = pairFromHole && !holePair && !kickerInfo.plays ? 0.055 : 0;
   let quality;
   if (!pairFromHole) quality = 0.2 + rankFit(Math.max.apply(null, holeRanks)) * 0.1;
   else if (pairRank > topBoardRank) quality = 0.55 + rankFit(pairRank) * 0.1 + kickerFit * 0.04;
-  else if (pairRank === topBoardRank) quality = 0.44 + rankFit(pairRank) * 0.08 + kickerFit * 0.1;
-  else if (boardRanksAbove === 1) quality = 0.36 + rankFit(pairRank) * 0.06 + kickerFit * 0.07;
-  else quality = 0.26 + rankFit(pairRank) * 0.06 + kickerFit * 0.06;
+  else if (pairRank === topBoardRank) quality = 0.41 + rankFit(pairRank) * 0.08 + kickerFit * 0.16 - weakKickerTax;
+  else if (boardRanksAbove === 1) quality = 0.34 + rankFit(pairRank) * 0.06 + kickerFit * 0.09 - weakKickerTax;
+  else quality = 0.25 + rankFit(pairRank) * 0.06 + kickerFit * 0.07 - weakKickerTax;
   return { quality: clamp(quality, 0.18, 0.68), pairQuality: clamp(quality, 0, 1), holeMade: pairFromHole ? 1 : 0 };
+}
+
+function pairKickerInfo(holeRanks, bestKickers, pairRank, holePair) {
+  if (holePair) return { rank: pairRank, fit: rankFit(pairRank), plays: true };
+  const candidates = holeRanks.filter(function (rank) { return rank !== pairRank; });
+  if (candidates.length === 0) return { rank: pairRank, fit: rankFit(pairRank), plays: true };
+  const rank = Math.max.apply(null, candidates);
+  const plays = bestKickers.includes(rank);
+  const fit = rankFit(rank) * (plays ? 1 : 0.35);
+  return { rank, fit, plays };
 }
 
 function twoPairMadeDetail(hole, board, best, base) {

@@ -660,6 +660,108 @@
         }
       ],
       "conclusion": "Adopt the shared-board made-hand correction globally as a correctness fix, and adopt postflop all-in defense only for full-ring heads-up contexts. Leave pure HU and 6max current behavior unchanged."
+    },
+    {
+      "date": "2026-05-31",
+      "commit": "TBD",
+      "title": "Pair kicker correction and full-ring polar range sampling",
+      "status": "adopted",
+      "hypothesis": "One-pair hand quality should use the hero kicker that actually plays, and large turn/river bets in full-ring heads-up pots should sample a more polarized opponent range instead of a generic strong-action range.",
+      "effects": [
+        {
+          "benchmark": "polar-range-ring-hu-heavy vs current",
+          "players": 9,
+          "deltaBb100": 11.5,
+          "hands": 2200,
+          "seeds": [
+            2031,
+            2032,
+            2033,
+            2034,
+            2035
+          ],
+          "source": "bench.js mirrored challenger confirmation, league table"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 2,
+          "deltaBb100": 225.6,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 6,
+          "deltaBb100": 174.9,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 9,
+          "deltaBb100": 24,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        }
+      ],
+      "spotChecks": [
+        {
+          "spot": "9max HU river A8 top pair weak kicker facing 140 into 80 overbet line",
+          "before": {
+            "equity": 0.621,
+            "madeQuality": 0.612,
+            "callPct": 98.6,
+            "foldPct": 0.4
+          },
+          "after": {
+            "equity": 0.533,
+            "madeQuality": 0.57,
+            "callPct": 95.1,
+            "foldPct": 4.1
+          },
+          "note": "The board king no longer gives A8 the same practical kicker quality as AK; full-ring HU polar sampling also tightens villain range."
+        },
+        {
+          "spot": "9max HU river KQ second pair facing pot-sized line on A K 7 4 2",
+          "before": {
+            "equity": 0.447,
+            "madeQuality": 0.485,
+            "callPct": 89.2,
+            "foldPct": 10.7
+          },
+          "after": {
+            "equity": 0.411,
+            "madeQuality": 0.47,
+            "callPct": 75.6,
+            "foldPct": 24.3
+          },
+          "note": "Second pair no longer receives full credit for the ace board kicker, and big river pressure narrows the sampled betting range."
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "polar-range-embedded",
+          "reason": "A four-seed confirmation was mildly positive at 9max but negative at 6max overall: 9max +2.4 bb/100, 6max -9.4 bb/100. The adopted version is therefore full-ring HU only."
+        },
+        {
+          "name": "polar-range-ring-hu-soft / polar-range-ring-hu",
+          "reason": "The full-ring HU soft and medium scales were noisy or negative in the three-seed check; the heavy scale was the only one with a positive 9max confirmation."
+        },
+        {
+          "name": "global polar-range variants",
+          "reason": "Global polar sampling had inconsistent 2p/6p/9p league results and was not adopted outside full-ring HU contexts."
+        }
+      ],
+      "conclusion": "Adopt the one-pair kicker correction globally as a hand-evaluation fix, and adopt polar opponent range sampling only for full-ring heads-up large-bet spots. Leave pure HU and 6max current behavior unchanged."
     }
   ]
 }
