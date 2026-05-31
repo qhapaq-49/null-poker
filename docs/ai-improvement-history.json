@@ -663,7 +663,7 @@
     },
     {
       "date": "2026-05-31",
-      "commit": "TBD",
+      "commit": "6b63ec3",
       "title": "Pair kicker correction and full-ring polar range sampling",
       "status": "adopted",
       "hypothesis": "One-pair hand quality should use the hero kicker that actually plays, and large turn/river bets in full-ring heads-up pots should sample a more polarized opponent range instead of a generic strong-action range.",
