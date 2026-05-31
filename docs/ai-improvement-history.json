@@ -519,6 +519,147 @@
         }
       ],
       "conclusion": "Adopt multiway defense discipline only for full-ring non-river pots facing a bet with a weak static made hand and little nut potential. Pure heads-up and 6max behavior remain unchanged."
+    },
+    {
+      "date": "2026-05-30",
+      "commit": "TBD",
+      "title": "Shared-board made-hand correction and full-ring HU jam defense",
+      "status": "adopted",
+      "hypothesis": "Board-only made hands should not be treated as hero-specific strength, and marginal bluffcatchers should defend less versus large all-in-like bets only where selfplay supports it.",
+      "effects": [
+        {
+          "benchmark": "postflop-jam-defense-embedded vs current, full-ring HU component only adopted",
+          "players": 2,
+          "deltaBb100": 0,
+          "hands": 0,
+          "seeds": [
+            1041,
+            1042,
+            1043,
+            1044
+          ],
+          "source": "policy construction: pure heads-up current does not receive the fullRingHeadsUp override"
+        },
+        {
+          "benchmark": "postflop-jam-defense-embedded vs current, full-ring HU component only adopted",
+          "players": 6,
+          "deltaBb100": 0,
+          "hands": 0,
+          "seeds": [
+            1041,
+            1042,
+            1043,
+            1044
+          ],
+          "source": "policy construction: sixMax current remains unchanged after rejecting sixMax/HU hybrids"
+        },
+        {
+          "benchmark": "postflop-jam-defense-embedded vs current",
+          "players": 9,
+          "deltaBb100": 13.4,
+          "hands": 1520,
+          "seeds": [
+            1041,
+            1042,
+            1043,
+            1044
+          ],
+          "source": "bench.js challengers league table"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 2,
+          "deltaBb100": 225.6,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 6,
+          "deltaBb100": 174.9,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        },
+        {
+          "benchmark": "current vs jammer smoke after adoption",
+          "players": 9,
+          "deltaBb100": 24,
+          "hands": 90,
+          "seeds": [
+            0
+          ],
+          "source": "bench.js jammer"
+        }
+      ],
+      "spotChecks": [
+        {
+          "spot": "Flop Ah As Ad, hero Jc8d, no bet facing",
+          "before": {
+            "made": 0.66,
+            "madeQuality": 0.62,
+            "aggressivePct": 29.7
+          },
+          "after": {
+            "made": 0.41,
+            "madeQuality": 0.41,
+            "aggressivePct": 30.6
+          },
+          "note": "Shared trips are no longer counted as category-strength hero value; c-bet frequency can remain high when range/initiative justify it."
+        },
+        {
+          "spot": "River Ah As Ad 2c 7s, hero KcQd facing half-pot all-in in 6max HU pot",
+          "before": {
+            "made": 0.66,
+            "madeQuality": 0.64,
+            "callPct": 99.2,
+            "foldPct": 0.8
+          },
+          "after": {
+            "made": 0.43,
+            "madeQuality": 0.43,
+            "callPct": 1.5,
+            "foldPct": 98.5
+          },
+          "note": "The board-trips kicker bluffcatcher stopped being treated as a strong made hand."
+        },
+        {
+          "spot": "Same river shared-trips spot in 9max full-ring HU context",
+          "before": {
+            "made": 0.66,
+            "madeQuality": 0.64,
+            "callPct": 99,
+            "foldPct": 1
+          },
+          "after": {
+            "made": 0.43,
+            "madeQuality": 0.43,
+            "callPct": 4.4,
+            "foldPct": 95.6
+          },
+          "note": "Full-ring HU jam-defense brake adds extra caution only after the table started full-ring."
+        }
+      ],
+      "rejectedCandidates": [
+        {
+          "name": "postflop-jam-defense global",
+          "reason": "Confirmation won pure HU but lost 6max and 9max overall: +66.9 / -18.5 / -5.0 bb/100 at 2p/6p/9p."
+        },
+        {
+          "name": "postflop-jam-defense-hybrid",
+          "reason": "The duel/sixMax/fullRing hybrid won 6max but lost pure HU and 9max in the three-seed check: -23.6 / +9.9 / -1.2 bb/100."
+        },
+        {
+          "name": "sixMax/fullRing table-wide jam defense",
+          "reason": "Table-wide defensive brakes were too sensitive to table size; only full-ring HU remained positive on confirmation."
+        }
+      ],
+      "conclusion": "Adopt the shared-board made-hand correction globally as a correctness fix, and adopt postflop all-in defense only for full-ring heads-up contexts. Leave pure HU and 6max current behavior unchanged."
     }
   ]
 }
