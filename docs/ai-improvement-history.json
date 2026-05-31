@@ -522,7 +522,7 @@
     },
     {
       "date": "2026-05-30",
-      "commit": "TBD",
+      "commit": "ae5ad2a",
       "title": "Shared-board made-hand correction and full-ring HU jam defense",
       "status": "adopted",
       "hypothesis": "Board-only made hands should not be treated as hero-specific strength, and marginal bluffcatchers should defend less versus large all-in-like bets only where selfplay supports it.",
